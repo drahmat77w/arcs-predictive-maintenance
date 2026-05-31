@@ -51,7 +51,7 @@ import warnings
 import random
 
 # --- 2. KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="ARCS | Enterprise AI", layout="wide", page_icon="✈️")
+st.set_page_config(page_title="ARCS | Aircraft Reliability Control Systems AI", layout="wide", page_icon="✈️")
 
 # --- INISIALISASI SESSION STATE ---
 if 'logged_in' not in st.session_state:
