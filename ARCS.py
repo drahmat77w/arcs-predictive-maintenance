@@ -1056,7 +1056,7 @@ if st.session_state.get('results') is not None:
     df_res.index = np.arange(1, len(df_res) + 1)
     st.dataframe(
         df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']]
-              .style.applymap(color_status, subset=['Status']),
+              .style.map(color_status, subset=['Status']),
         use_container_width=True
     )
 
