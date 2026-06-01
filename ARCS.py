@@ -1208,6 +1208,7 @@ if st.session_state.get('results') is not None:
             pdf_bytes     = generate_cnr_pdf(res, None)
             
             st.download_button(
+            )
         st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
         date_info = res['Dates Info']
         st.markdown(f"""
