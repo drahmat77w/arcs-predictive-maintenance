@@ -1038,17 +1038,6 @@ if st.session_state.get('results') is not None:
         )
 
         st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
-
-        # --- TOMBOL PDF MURNI TANPA KALEIDO ---
-        pdf_bytes = generate_cnr_pdf(res)
-        st.download_button(
-            label="📄 Download Pre-Info Report (PDF)",
-            data=pdf_bytes,
-            file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
-            mime="application/pdf"
-        )
-
-        st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
         date_info = res['Dates Info']
         st.markdown(f"""
         <div class='info-box'>
