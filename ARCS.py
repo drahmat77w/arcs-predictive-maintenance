@@ -21,10 +21,11 @@ try:
     )
     from tensorflow.keras.callbacks import EarlyStopping
     from fpdf import FPDF
+    from PIL import Image
 except ImportError:
     print("⚠️ Menginstall library tambahan...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", 
-                           "plotly", "scikit-learn", "fpdf", "scipy"])
+                           "plotly", "scikit-learn", "fpdf", "scipy", "Pillow"])
     import plotly.graph_objects as go
     import plotly.express as px
     import plotly.figure_factory as ff
@@ -36,6 +37,7 @@ except ImportError:
     )
     from tensorflow.keras.callbacks import EarlyStopping
     from fpdf import FPDF
+    from PIL import Image
     print("✅ Library berhasil diinstall!")
 
 import streamlit as st
@@ -167,23 +169,18 @@ def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int,
 class PDFReport(FPDF):
     def __init__(self):
         super().__init__()
-        # Kunci waktu UTC saat PDF dibuat agar sama di semua halaman
         self.utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
 
     def footer(self):
-        # Memaksa footer selalu berada di 1.5 cm dari bawah kertas
         self.set_y(-15)
         self.set_font("Courier", 'I', 7)
-        self.set_text_color(153, 153, 153) # Warna abu-abu (opacity 40%)
-        
-        # Stempel Waktu (Kiri)
+        self.set_text_color(153, 153, 153)
         self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
-        # Nomor Halaman (Kanan)
         self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
 
-# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT (NO KALEIDO) ---
-def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", image_bytes=None, notes=None):
+# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT ---
+def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", images_bytes_list=None, notes=None):
     pdf = PDFReport()
     pdf.alias_nb_pages()
     pdf.add_page()
@@ -209,7 +206,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
 
-    # 1. Summary (Dengan Inline Bold)
+    # 1. Summary
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "1. Summary", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.write(5, "Based on engine trend monitoring, Fuel Filter Delta Pressure of ")
@@ -227,7 +224,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.write(5, " during the takeoff phase.")
     pdf.ln(8)
 
-    # 2. Analytics (Dengan Inline Bold)
+    # 2. Analytics
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "2. Analytics", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.write(5, "The analysis results show that there is a possibility that a CNR will appear regarding a contaminated fuel filter on ")
@@ -237,7 +234,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.write(5, ".")
     pdf.ln(8)
 
-    # 3. Recommendation (Dengan Inline Bold)
+    # 3. Recommendation
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "3. Recommendation", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.multi_cell(0, 5, "Dear MS-MCC,")
@@ -277,20 +274,67 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
         pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
     pdf.ln(5)
 
-    # --- FITUR UPLOAD GAMBAR ---
-    if image_bytes is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-            tmp.write(image_bytes)
-            tmp_path = tmp.name
-        
-        pdf.ln(3)
-        pdf.image(tmp_path, x=10, w=190) 
-        os.unlink(tmp_path)
-        pdf.ln(5)
+    # --- FITUR UPLOAD BANYAK GAMBAR (AUTO SCALING & PAGE BREAK) ---
+    if images_bytes_list and len(images_bytes_list) > 0:
+        for img_bytes in images_bytes_list:
+            try:
+                # Membuka file gambar (mendukung berbagai macam format yang akan diconvert via Pillow)
+                img = Image.open(io.BytesIO(img_bytes))
+                
+                # Jika gambar memiliki transparansi (RGBA, dll), ubah jadi RGB dengan background putih
+                if img.mode in ('RGBA', 'P', 'LA'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if len(img.split()) >= 4:
+                        background.paste(img, mask=img.split()[3])
+                    else:
+                        background.paste(img)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Kalkulasi dimensi proporsional
+                img_w_px, img_h_px = img.size
+                aspect_ratio = img_h_px / img_w_px
+                
+                pdf_w = 190 # Lebar maksimal konten di kertas A4
+                pdf_h = pdf_w * aspect_ratio
+                
+                # Jika tinggi gambar lebih besar dari batas aman 1 halaman (240mm), perkecil proporsional
+                x_pos = 10
+                if pdf_h > 240:
+                    pdf_h = 240
+                    pdf_w = pdf_h / aspect_ratio
+                    x_pos = 10 + (190 - pdf_w) / 2 # Posisikan gambar di tengah-tengah
+                
+                # Jika sisa ruang (Y) + tinggi gambar melampaui batas margin bawah, buat halaman baru
+                if pdf.get_y() + pdf_h > 270:
+                    pdf.add_page()
+                else:
+                    pdf.ln(5)
+                
+                # Simpan sementara sebagai JPEG agar 100% kompatibel dengan FPDF
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+                    img.save(tmp, format='JPEG', quality=95)
+                    tmp_path = tmp.name
+                
+                pdf.image(tmp_path, x=x_pos, w=pdf_w, h=pdf_h) 
+                os.unlink(tmp_path)
+                pdf.ln(5)
+            except Exception as e:
+                pdf.set_font("Courier", 'I', 9)
+                pdf.set_text_color(255, 0, 0)
+                pdf.cell(0, 5, f"[Error processing uploaded image: {e}]", ln=True)
+                pdf.set_text_color(0, 0, 0)
+                pdf.ln(5)
 
-    # --- FITUR NOTES KHUSUS (Jadi "6. Notes") ---
+    # --- FITUR NOTES KHUSUS ---
     if notes and str(notes).strip() != "":
-        pdf.ln(2)
+        # Cek apakah butuh halaman baru untuk Notes
+        if pdf.get_y() > 250:
+            pdf.add_page()
+        else:
+            pdf.ln(2)
+            
         pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "6. Notes", ln=True)
         pdf.set_font("Courier", '', 10)
         pdf.multi_cell(0, 5, str(notes).strip())
@@ -299,14 +343,19 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     # ---------------------------------------------------------
     # SIGNATURE BLOCK & DISCLAIMER
     # ---------------------------------------------------------
-    pdf.ln(5) 
+    # Cek batas kertas untuk blok Tanda Tangan
+    if pdf.get_y() > 220:
+        pdf.add_page()
+    else:
+        pdf.ln(5) 
+        
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "Best Regards,", ln=True)
     pdf.cell(0, 5, user_name, ln=True)
     pdf.cell(0, 5, "Powerplant Engineering - TEA 2", ln=True)
     pdf.ln(3)
 
-    # Load Logo GMF (jika file ada)
+    # Load Logo GMF
     if os.path.exists("GMF.png"):
         pdf.image("GMF.png", x=pdf.get_x(), w=40)
         pdf.ln(3)
@@ -318,7 +367,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.cell(0, 5, f"P : {user_phone}", ln=True)
     pdf.cell(0, 5, f"E : {user_email}", ln=True)
 
-    # Confidentiality Disclaimer (Abu-abu)
+    # Confidentiality Disclaimer
     pdf.ln(5)
     pdf.set_text_color(150, 150, 150)
     pdf.set_font("Courier", 'I', 7)
@@ -1061,8 +1110,8 @@ if st.session_state.get('results') is not None:
             with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
             
             st.markdown("---")
-            # Fitur Upload Gambar
-            uploaded_img = st.file_uploader("📎 Upload Supporting Image (JPG/PNG)", type=['jpg', 'jpeg', 'png'], help="Upload grafik atau data tambahan. Gambar akan secara otomatis ditarik menyesuaikan lebar kertas A4.")
+            # Fitur Upload Gambar (Mendukung banyak file dan format)
+            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
             
             st.markdown("---")
             # Fitur Notes (Aktif jika dicentang)
@@ -1073,23 +1122,24 @@ if st.session_state.get('results') is not None:
             
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Logika proteksi file maksimal 10MB
-        img_bytes = None
-        if uploaded_img is not None:
-            if uploaded_img.size > 10 * 1024 * 1024:
-                st.error("⚠️ Ukuran gambar melebihi 10 MB. Silakan kompres gambar Anda.")
-            else:
-                img_bytes = uploaded_img.getvalue()
+        # Logika iterasi gambar & proteksi maksimal 10MB per file
+        img_bytes_list = []
+        if uploaded_imgs:
+            for img_file in uploaded_imgs:
+                if img_file.size > 10 * 1024 * 1024:
+                    st.error(f"⚠️ Gambar {img_file.name} melebihi 10 MB. Silakan kompres gambar tersebut.")
+                else:
+                    img_bytes_list.append(img_file.getvalue())
 
         notes_text = custom_notes if use_notes else None
 
-        # Memanggil PDF dengan semua data baru
+        # Memanggil PDF dengan semua data baru (menggunakan List bytes gambar)
         pdf_bytes = generate_cnr_pdf(
             res, 
             user_name=input_name, 
             user_phone=input_phone, 
             user_email=input_email,
-            image_bytes=img_bytes,
+            images_bytes_list=img_bytes_list,
             notes=notes_text
         )
 
