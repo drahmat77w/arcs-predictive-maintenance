@@ -138,7 +138,7 @@ if not st.session_state['logged_in']:
         
         st.markdown('<div style="text-align:center; font-size: 11px; color: #888; margin-top:10px; margin-bottom: 10px;">Need help logging in? <a href="#" style="color:#2563eb; text-decoration:none;">Contact the ARCS Help Desk</a></div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="footer-login">Copyright ©2026 Universitas Diponegoro, GMF AeroAsia, and Garuda Indonesia. All rights reserved.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer-login">Copyright ©2026 Engineering Services GMF AeroAsia In Collaboration with Diponegoro University. All rights reserved.</div>', unsafe_allow_html=True)
     st.stop()
 
 
