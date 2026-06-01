@@ -78,6 +78,12 @@ def reset_seeds(seed=42):
 if not st.session_state['logged_in']:
     st.markdown("""
         <style>
+            .stApp { background: linear-gradient(135deg, #1c3c7e 0%, #0a1938 100%); }
+            header[data-testid="stHeader"] { display: none; }
+            .login-card {
+                background-color: white; padding: 40px 50px; border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%;
+            }
             .stTextInput input { border-radius: 6px; padding: 10px 15px; border: 1px solid #ddd; }
             div.stButton > button {
                 width: 100%; background-color: #2563eb; color: white; font-weight: bold;
