@@ -1201,7 +1201,13 @@ if st.session_state.get('results') is not None:
             )
         except Exception:
             st.warning("⚠️ Fitur PDF butuh rendering engine (Kaleido). Silakan klik sekali lagi atau tunggu sesaat.")
-
+# Kita matikan paksa baris pemotretan Kaleido dengan tanda pagar (#)
+            # fig_bytes_pdf = fig_pdf.to_image(format="png", width=900, height=350, engine="kaleido")
+            
+            # Kita ubah baris pemanggilan PDF, ganti fig_bytes_pdf menjadi None
+            pdf_bytes     = generate_cnr_pdf(res, None)
+            
+            st.download_button(
         st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
         date_info = res['Dates Info']
         st.markdown(f"""
