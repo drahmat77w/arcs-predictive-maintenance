@@ -125,7 +125,7 @@ if not st.session_state['logged_in']:
                     <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Control Systems</span>
                 </div>
             </div>
-            <h3 style="font-size: 16px; margin-bottom: 5px; color: #000;">Login</h3>
+            <h3 style="font-size: 16px; margin-bottom: 5px; color: #FFF;">Login</h3>
         """, unsafe_allow_html=True)
 
         username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
