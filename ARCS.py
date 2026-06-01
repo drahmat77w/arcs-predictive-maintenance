@@ -1016,6 +1016,29 @@ if st.session_state.get('results') is not None:
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
+        # --- FORM SIGNATURE & TOMBOL PDF ---
+        st.markdown("<div style='background-color:#f8f9fa; padding:15px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#002561; font-weight:bold; font-size:13px; text-transform:uppercase;'>✍️ Report Signature Details</span>", unsafe_allow_html=True)
+        
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1: input_name = st.text_input("Name", value=user_display_name, key="sig_name")
+        with col_s2: input_phone = st.text_input("Phone Number", value="+62", key="sig_phone")
+        with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id", key="sig_email")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Memanggil PDF dengan mengirimkan data dari form di atas
+        pdf_bytes = generate_cnr_pdf(res, user_name=input_name, user_phone=input_phone, user_email=input_email)
+
+        st.download_button(
+            label="📄 Download Pre-Info Report (PDF)",
+            data=pdf_bytes,
+            file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+
+        st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
+
         # --- TOMBOL PDF MURNI TANPA KALEIDO ---
         pdf_bytes = generate_cnr_pdf(res)
         st.download_button(
