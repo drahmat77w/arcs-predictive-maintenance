@@ -4,6 +4,7 @@ import subprocess
 import math
 import json
 import io
+import tempfile
 
 # ==========================================
 # 1. AUTO-FIX: INSTALL LIBRARY OTOMATIS
@@ -115,14 +116,14 @@ if not st.session_state['logged_in']:
         # Teks Logo ARCS
         st.markdown("""
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #FFF; letter-spacing: 1px; line-height: 1;">ARCS</h1>
-                <div style="width: 2px; height: 35px; background-color: #FFF; margin: 0 15px;"></div>
+                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #000; letter-spacing: 1px; line-height: 1;">ARCS</h1>
+                <div style="width: 2px; height: 35px; background-color: #000; margin: 0 15px;"></div>
                 <div style="text-align: left; line-height: 1.1;">
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Aircraft Reliability</span>
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Control Systems</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Aircraft Reliability</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Control Systems</span>
                 </div>
             </div>
-            <h3 style="font-size: 16px; margin-bottom: 5px; color: #FFF;">Login</h3>
+            <h3 style="font-size: 16px; margin-bottom: 5px; color: #000;">Login</h3>
         """, unsafe_allow_html=True)
 
         username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
@@ -161,9 +162,30 @@ def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int,
     drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
     return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
+
+# --- TEMPLATE KERTAS DENGAN FOOTER (NOMOR HALAMAN & TIMESTAMP) ---
+class PDFReport(FPDF):
+    def __init__(self):
+        super().__init__()
+        # Kunci waktu UTC saat PDF dibuat agar sama di semua halaman
+        self.utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
+
+    def footer(self):
+        # Memaksa footer selalu berada di 1.5 cm dari bawah kertas
+        self.set_y(-15)
+        self.set_font("Courier", 'I', 7)
+        self.set_text_color(153, 153, 153) # Warna abu-abu (opacity 40%)
+        
+        # Stempel Waktu (Kiri)
+        self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
+        # Nomor Halaman (Kanan)
+        self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
+
+
 # --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT (NO KALEIDO) ---
-def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]"):
-    pdf = FPDF()
+def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", image_bytes=None, notes=None):
+    pdf = PDFReport()
+    pdf.alias_nb_pages()
     pdf.add_page()
     
     # Judul
@@ -253,13 +275,31 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
         pdf.cell(40, 6, str(row['Value at Ref. Date']), border=1, align='C')
         pdf.cell(40, 6, str(row['Value at Obs. Date']), border=1, align='C')
         pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
+    pdf.ln(5)
 
-    # Catatan: Teks note lama (omitted graph) sudah dihapus sesuai instruksi
+    # --- FITUR UPLOAD GAMBAR ---
+    if image_bytes is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
+            tmp.write(image_bytes)
+            tmp_path = tmp.name
+        
+        pdf.ln(3)
+        pdf.image(tmp_path, x=10, w=190) 
+        os.unlink(tmp_path)
+        pdf.ln(5)
+
+    # --- FITUR NOTES KHUSUS (Jadi "6. Notes") ---
+    if notes and str(notes).strip() != "":
+        pdf.ln(2)
+        pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "6. Notes", ln=True)
+        pdf.set_font("Courier", '', 10)
+        pdf.multi_cell(0, 5, str(notes).strip())
+        pdf.ln(5)
 
     # ---------------------------------------------------------
     # SIGNATURE BLOCK & DISCLAIMER
     # ---------------------------------------------------------
-    pdf.ln(10)
+    pdf.ln(5) 
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "Best Regards,", ln=True)
     pdf.cell(0, 5, user_name, ln=True)
@@ -271,28 +311,21 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
         pdf.image("GMF.png", x=pdf.get_x(), w=40)
         pdf.ln(3)
     else:
-        pdf.ln(15) # Spasi cadangan jika gambar belum terbaca server
+        pdf.ln(5) 
 
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
-    pdf.cell(0, 5, f"Phone : {user_phone}", ln=True)
-    pdf.cell(0, 5, f"Email : {user_email}", ln=True)
+    pdf.cell(0, 5, f"P : {user_phone}", ln=True)
+    pdf.cell(0, 5, f"E : {user_email}", ln=True)
 
-# Confidentiality Disclaimer (Abu-abu)
-    pdf.ln(5) # <-- Spasi dikurangi
+    # Confidentiality Disclaimer (Abu-abu)
+    pdf.ln(5)
     pdf.set_text_color(150, 150, 150)
     pdf.set_font("Courier", 'I', 7)
     disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies."
     pdf.multi_cell(0, 4, disclaimer_text, align='L')
+    pdf.set_text_color(0, 0, 0) 
 
-    # Timestamp UTC (Di tengah, Opacity ~40%)
-    utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
-    pdf.ln(4)
-    pdf.set_text_color(153, 153, 153) # 40% tingkat kepekatan hitam
-    pdf.cell(0, 4, f"ARCS Dashboard Generated on {utc_now}z", ln=True, align='C')
-    pdf.set_text_color(0, 0, 0) # Kembalikan warna ke hitam normal
-
-    # Return as bytes yang 100% aman untuk st.download_button
     return bytes(pdf.output(dest='S').encode('latin-1'))
 
 
@@ -1017,18 +1050,48 @@ if st.session_state.get('results') is not None:
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- FORM SIGNATURE & TOMBOL PDF ---
+        # --- FORM SETTINGS (SIGNATURE, IMAGE & NOTES) ---
         st.markdown("<div style='background-color:#f8f9fa; padding:15px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
-        st.markdown("<span style='color:#002561; font-weight:bold; font-size:13px; text-transform:uppercase;'>✍️ Report Signature Details</span>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#002561; font-weight:bold; font-size:13px; text-transform:uppercase;'>📝 Report Details & Adjustments</span>", unsafe_allow_html=True)
         
-        col_s1, col_s2, col_s3 = st.columns(3)
-        with col_s1: input_name = st.text_input("Name", value=user_display_name, key="sig_name")
-        with col_s2: input_phone = st.text_input("Phone Number", value="+62", key="sig_phone")
-        with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id", key="sig_email")
+        with st.form(key="signature_form"):
+            col_s1, col_s2, col_s3 = st.columns(3)
+            with col_s1: input_name = st.text_input("Name", value=user_display_name)
+            with col_s2: input_phone = st.text_input("Phone Number", value="+6281904706205")
+            with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
+            
+            st.markdown("---")
+            # Fitur Upload Gambar
+            uploaded_img = st.file_uploader("📎 Upload Supporting Image (JPG/PNG)", type=['jpg', 'jpeg', 'png'], help="Upload grafik atau data tambahan. Gambar akan secara otomatis ditarik menyesuaikan lebar kertas A4.")
+            
+            st.markdown("---")
+            # Fitur Notes (Aktif jika dicentang)
+            use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
+            custom_notes = st.text_area("Tulis catatan Engineer di sini:", disabled=not use_notes)
+            
+            submit_signature = st.form_submit_button("🔄 Apply All Data to PDF")
+            
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Memanggil PDF dengan mengirimkan data dari form di atas
-        pdf_bytes = generate_cnr_pdf(res, user_name=input_name, user_phone=input_phone, user_email=input_email)
+        # Logika proteksi file maksimal 10MB
+        img_bytes = None
+        if uploaded_img is not None:
+            if uploaded_img.size > 10 * 1024 * 1024:
+                st.error("⚠️ Ukuran gambar melebihi 10 MB. Silakan kompres gambar Anda.")
+            else:
+                img_bytes = uploaded_img.getvalue()
+
+        notes_text = custom_notes if use_notes else None
+
+        # Memanggil PDF dengan semua data baru
+        pdf_bytes = generate_cnr_pdf(
+            res, 
+            user_name=input_name, 
+            user_phone=input_phone, 
+            user_email=input_email,
+            image_bytes=img_bytes,
+            notes=notes_text
+        )
 
         st.download_button(
             label="📄 Download Pre-Info Report (PDF)",
