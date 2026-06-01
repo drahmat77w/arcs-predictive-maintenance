@@ -289,7 +289,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
     pdf.ln(4)
     pdf.set_text_color(153, 153, 153) # 40% tingkat kepekatan hitam
-    pdf.cell(0, 4, f"ARCS Dashboard Generated on {utc_now}Z", ln=True, align='C')
+    pdf.cell(0, 4, f"ARCS Dashboard Generated on {utc_now}z", ln=True, align='C')
     pdf.set_text_color(0, 0, 0) # Kembalikan warna ke hitam normal
 
     # Return as bytes yang 100% aman untuk st.download_button
