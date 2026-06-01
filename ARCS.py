@@ -263,7 +263,6 @@ st.markdown(f"""
         .header-title {{ color: #002561; font-size: 20px; font-weight: 700; text-transform: uppercase; margin: 0; }}
         .header-right {{ display: flex; align-items: center; }}
         .login-link {{ text-decoration: none; color: #005eb8; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }}
-        .card-tool {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 100%; margin-bottom: 20px; }}
         div.stButton > button {{ width: 100%; padding: 14px; background-color: #005eb8; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }}
         div.stButton > button:hover {{ background-color: #002561; color: white; }}
         .block-container {{padding-top: 1rem;}}
