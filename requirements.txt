@@ -5,5 +5,5 @@ tensorflow-cpu
 scikit-learn
 plotly
 fpdf
-kaleido==0.1.0.post1
+kaleido==1.3.0
 openpyxl
