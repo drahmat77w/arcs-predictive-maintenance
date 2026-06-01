@@ -284,7 +284,26 @@ def generate_cnr_pdf(res, fig_bytes):
     pdf.set_text_color(0, 0, 0)
 
     return pdf.output(dest='S').encode('latin-1')
+    
+# Jika ada gambar, proses. Jika tidak ada, beri keterangan teks.
+    if fig_bytes is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
+            tmp.write(fig_bytes)
+            tmp_path = tmp.name
+        pdf.image(tmp_path, x=10, w=190)
+        os.unlink(tmp_path)
+    else:
+        pdf.set_font("Courier", 'I', 9)
+        pdf.set_text_color(120, 120, 120)
+        pdf.cell(0, 5, "* Catatan: Grafik visual degradasi dapat dilihat secara live pada Dashboard ARCS.", ln=True, align='C')
 
+    pdf.ln(10)
+    pdf.set_text_color(160, 160, 160)
+    pdf.set_font("Courier", 'I', 8)
+    pdf.cell(0, 5, "ARCS Dashboard Generated.", ln=True, align='C')
+    pdf.set_text_color(0, 0, 0)
+
+    return pdf.output(dest='S').encode('latin-1')
 
 # --- CSS TAMPILAN DASHBOARD UTAMA ---
 user_display_name = st.session_state['employee_name']
