@@ -275,8 +275,8 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
 
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
-    pdf.cell(0, 5, f"P : {user_phone}", ln=True)
-    pdf.cell(0, 5, f"E : {user_email}", ln=True)
+    pdf.cell(0, 5, f"Phone : {user_phone}", ln=True)
+    pdf.cell(0, 5, f"Email : {user_email}", ln=True)
 
 # Confidentiality Disclaimer (Abu-abu)
     pdf.ln(5) # <-- Spasi dikurangi
