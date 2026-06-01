@@ -78,18 +78,27 @@ def reset_seeds(seed=42):
 if not st.session_state['logged_in']:
     st.markdown("""
         <style>
+            /* Latar belakang gradien biru */
             .stApp { background: linear-gradient(135deg, #1c3c7e 0%, #0a1938 100%); }
             header[data-testid="stHeader"] { display: none; }
-            .login-card {
-                background-color: white; padding: 40px 50px; border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%;
+            
+            /* Trik CSS: Mewarnai Kolom Tengah Streamlit menjadi Kotak Putih */
+            div[data-testid="column"]:nth-of-type(2) {
+                background-color: white; 
+                padding: 40px 50px; 
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
             }
-            .stTextInput input { border-radius: 6px; padding: 10px 15px; border: 1px solid #ddd; }
+            
+            /* Mempercantik kotak input dan tombol */
+            .stTextInput input { border-radius: 6px; padding: 10px 15px; border: 1px solid #ddd; background-color: #f8f9fa; color: #333;}
             div.stButton > button {
                 width: 100%; background-color: #2563eb; color: white; font-weight: bold;
-                border-radius: 6px; padding: 10px; border: none;
+                border-radius: 6px; padding: 10px; border: none; margin-top: 10px;
             }
             div.stButton > button:hover { background-color: #1d4ed8; color: white; }
+            
+            /* Copyright text */
             .footer-login {
                 position: fixed; bottom: 20px; width: 100%; text-align: center;
                 color: rgba(255,255,255,0.7); font-size: 12px; left: 0;
@@ -97,11 +106,14 @@ if not st.session_state['logged_in']:
         </style>
     """, unsafe_allow_html=True)
 
+    # Spasi atas agar kotak turun ke tengah
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+    # Membuat 3 kolom, kita gunakan kolom ke-2 (tengah) sebagai kotak login
     _, col2, _ = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+        # Teks Logo ARCS
         st.markdown("""
-        <div class="login-card">
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
                 <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #000; letter-spacing: 1px; line-height: 1;">ARCS</h1>
                 <div style="width: 2px; height: 35px; background-color: #000; margin: 0 15px;"></div>
@@ -111,7 +123,6 @@ if not st.session_state['logged_in']:
                 </div>
             </div>
             <h3 style="font-size: 16px; margin-bottom: 5px; color: #000;">Login</h3>
-        </div>
         """, unsafe_allow_html=True)
 
         username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
@@ -125,7 +136,8 @@ if not st.session_state['logged_in']:
             else:
                 st.error("Invalid Username or Password.")
         
-        st.markdown('<div style="text-align:center; font-size: 11px; color: #888; margin-top:-10px; margin-bottom: 30px;">Need help logging in? <a href="#" style="color:#2563eb; text-decoration:none;">Contact the ARCS Help Desk</a></div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center; font-size: 11px; color: #888; margin-top:10px; margin-bottom: 10px;">Need help logging in? <a href="#" style="color:#2563eb; text-decoration:none;">Contact the ARCS Help Desk</a></div>', unsafe_allow_html=True)
+    
     st.markdown('<div class="footer-login">Copyright ©2026 Universitas Diponegoro, GMF AeroAsia, and Garuda Indonesia. All rights reserved.</div>', unsafe_allow_html=True)
     st.stop()
 
