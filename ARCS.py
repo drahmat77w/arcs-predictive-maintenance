@@ -278,17 +278,18 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.cell(0, 5, f"P : {user_phone}", ln=True)
     pdf.cell(0, 5, f"E : {user_email}", ln=True)
 
-    # Confidentiality Disclaimer (Opacity rendah / Abu-abu)
-    pdf.ln(10)
+# Confidentiality Disclaimer (Abu-abu)
+    pdf.ln(5) # <-- Spasi dikurangi
     pdf.set_text_color(150, 150, 150)
     pdf.set_font("Courier", 'I', 7)
     disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies."
     pdf.multi_cell(0, 4, disclaimer_text, align='L')
 
-    # Timestamp UTC
+    # Timestamp UTC (Di tengah, Opacity ~40%)
     utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
-    pdf.ln(2)
-    pdf.cell(0, 4, f"ARCS Dashboard Generated on {utc_now}Z", ln=True, align='L')
+    pdf.ln(4)
+    pdf.set_text_color(153, 153, 153) # 40% tingkat kepekatan hitam
+    pdf.cell(0, 4, f"ARCS Dashboard Generated on {utc_now}Z", ln=True, align='C')
     pdf.set_text_color(0, 0, 0) # Kembalikan warna ke hitam normal
 
     # Return as bytes yang 100% aman untuk st.download_button
