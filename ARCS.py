@@ -1,7 +1,6 @@
 import os
 import sys
 import subprocess
-import tempfile
 import math
 import json
 import io
@@ -21,11 +20,10 @@ try:
     )
     from tensorflow.keras.callbacks import EarlyStopping
     from fpdf import FPDF
-    import kaleido
 except ImportError:
     print("⚠️ Menginstall library tambahan...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", 
-                           "plotly", "scikit-learn", "fpdf", "kaleido", "scipy"])
+                           "plotly", "scikit-learn", "fpdf", "scipy"])
     import plotly.graph_objects as go
     import plotly.express as px
     import plotly.figure_factory as ff
@@ -37,7 +35,6 @@ except ImportError:
     )
     from tensorflow.keras.callbacks import EarlyStopping
     from fpdf import FPDF
-    import kaleido
     print("✅ Library berhasil diinstall!")
 
 import streamlit as st
@@ -51,7 +48,7 @@ import warnings
 import random
 
 # --- 2. KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="ARCS | Aircraft Reliability Control Systems AI", layout="wide", page_icon="✈️")
+st.set_page_config(page_title="ARCS | Enterprise AI", layout="wide", page_icon="✈️")
 
 # --- INISIALISASI SESSION STATE ---
 if 'logged_in' not in st.session_state:
@@ -79,66 +76,41 @@ def reset_seeds(seed=42):
 # 3. LOGIN DASHBOARD UI
 # ==========================================
 if not st.session_state['logged_in']:
-    # Inject CSS khusus halaman Login
     st.markdown("""
         <style>
-            /* Background gradien biru */
-            .stApp {
-                background: linear-gradient(135deg, #1c3c7e 0%, #0a1938 100%);
+            .stApp { background: linear-gradient(135deg, #1c3c7e 0%, #0a1938 100%); }
+            header[data-testid="stHeader"] { display: none; }
+            .login-card {
+                background-color: white; padding: 40px 50px; border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%;
             }
-            /* Hilangkan header bawaan streamlit */
-            header[data-testid="stHeader"] {
-                display: none;
-            }
-            .stTextInput input {
-                border-radius: 6px;
-                padding: 10px 15px;
-                border: 1px solid #ddd;
-            }
-            /* Styling Button Biru */
+            .stTextInput input { border-radius: 6px; padding: 10px 15px; border: 1px solid #ddd; }
             div.stButton > button {
-                width: 100%;
-                background-color: #2563eb;
-                color: white;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 10px;
-                border: none;
+                width: 100%; background-color: #2563eb; color: white; font-weight: bold;
+                border-radius: 6px; padding: 10px; border: none;
             }
-            div.stButton > button:hover {
-                background-color: #1d4ed8;
-                color: white;
-            }
-            /* Copyright text */
+            div.stButton > button:hover { background-color: #1d4ed8; color: white; }
             .footer-login {
-                position: fixed;
-                bottom: 20px;
-                width: 100%;
-                text-align: center;
-                color: rgba(255,255,255,0.7);
-                font-size: 12px;
-                left: 0;
+                position: fixed; bottom: 20px; width: 100%; text-align: center;
+                color: rgba(255,255,255,0.7); font-size: 12px; left: 0;
             }
         </style>
     """, unsafe_allow_html=True)
 
-    # Layout agar Card ada di tengah
     _, col2, _ = st.columns([1, 1.2, 1])
-
     with col2:
         st.markdown("<br><br><br><br>", unsafe_allow_html=True)
-        # Header Logo ARCS
         st.markdown("""
         <div class="login-card">
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: white; letter-spacing: 1px; line-height: 1;">ARCS</h1>
-                <div style="width: 2px; height: 35px; background-color: white; margin: 0 15px;"></div>
+                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #000; letter-spacing: 1px; line-height: 1;">ARCS</h1>
+                <div style="width: 2px; height: 35px; background-color: #000; margin: 0 15px;"></div>
                 <div style="text-align: left; line-height: 1.1;">
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: white;">Aircraft Reliability</span>
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: white;">Control Systems</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Aircraft Reliability</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Control Systems</span>
                 </div>
             </div>
-            <h3 style="font-size: 16px; margin-bottom: 5px; color: white;">Login</h3>
+            <h3 style="font-size: 16px; margin-bottom: 5px; color: #000;">Login</h3>
         </div>
         """, unsafe_allow_html=True)
 
@@ -153,70 +125,57 @@ if not st.session_state['logged_in']:
             else:
                 st.error("Invalid Username or Password.")
         
-        st.markdown('<div style="text-align:center; font-size: 11px; color: #888; margin-top:-10px; margin-bottom: 30px;">Need help logging in? <a href="#" style="color:#2563eb; text-decoration:none;">Contact ARCS Help Desk</a></div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="footer-login">Copyright ©2026 Engineering Services GMF AeroAsia, In Collaboration with Diponegoro University. All rights reserved.</div>', unsafe_allow_html=True)
-    
-    # Hentikan eksekusi kode di sini jika belum login
+        st.markdown('<div style="text-align:center; font-size: 11px; color: #888; margin-top:-10px; margin-bottom: 30px;">Need help logging in? <a href="#" style="color:#2563eb; text-decoration:none;">Contact the ARCS Help Desk</a></div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer-login">Copyright ©2026 Universitas Diponegoro, GMF AeroAsia, and Garuda Indonesia. All rights reserved.</div>', unsafe_allow_html=True)
     st.stop()
 
 
 # ==========================================
-# 4. OPT-1 STRIDE-TRICKS SEQUENCE BUILDER
+# 4. FUNGSI TEKNIS & PDF
 # ==========================================
 def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
     N, F = arr2d.shape
     out_len = N - window_size
-    if out_len <= 0:
-        return np.empty((0, window_size, F), dtype=arr2d.dtype)
-
+    if out_len <= 0: return np.empty((0, window_size, F), dtype=arr2d.dtype)
     shape   = (out_len, window_size, F)
     strides = (arr2d.strides[0], arr2d.strides[0], arr2d.strides[1])
     view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
     return view.copy()  
 
-
-# ==========================================
-# 5. OPT-2 VECTORISED MONTE CARLO
-# ==========================================
-def vectorized_monte_carlo(curr_psi: float,
-                           base_curve: np.ndarray,
-                           n_iter: int,
-                           n_steps: int) -> np.ndarray:
+def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int) -> np.ndarray:
     base_arr     = base_curve[:n_steps]
     base_delta   = base_arr - base_arr[0]                       
-
     start_noises = np.random.normal(0.0,  0.05, n_iter)         
     drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
-
     return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
-# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT ---
-def generate_cnr_pdf(res, fig_bytes=None):
+# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT (NO KALEIDO) ---
+def generate_cnr_pdf(res):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Judul
     pdf.set_font("Courier", 'B', 16)
-
     pdf.cell(0, 10, "Pre-Info Notification", ln=True, align='C')
     pdf.ln(5)
 
+    # Identitas
     pdf.set_font("Courier", 'B', 10)
     pdf.cell(40, 6, "Airline/Customer:"); pdf.set_font("Courier", '', 10); pdf.cell(70, 6, "PT Garuda Indonesia Persero Tbk")
     pdf.set_font("Courier", 'B', 10); pdf.cell(35, 6, "Aircraft Tail:"); pdf.set_font("Courier", '', 10); pdf.cell(45, 6, str(res['Reg']), ln=True)
-
     pdf.set_font("Courier", 'B', 10)
     pdf.cell(40, 6, "Engine Type:"); pdf.set_font("Courier", '', 10); pdf.cell(70, 6, "GE90-115B")
     pdf.set_font("Courier", 'B', 10); pdf.cell(35, 6, "Engine Serial:"); pdf.set_font("Courier", '', 10); pdf.cell(45, 6, str(res['ESN']), ln=True)
-
     pdf.set_font("Courier", 'B', 10)
     pdf.cell(40, 6, "Date:"); pdf.set_font("Courier", '', 10); pdf.cell(70, 6, datetime.now().strftime('%d %b %Y'))
     pdf.set_font("Courier", 'B', 10); pdf.cell(35, 6, "Aircraft Type:"); pdf.set_font("Courier", '', 10); pdf.cell(45, 6, "B777-300ER", ln=True)
-
+    
     pdf.ln(5)
     pdf.set_line_width(0.2)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
 
+    # Summary
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "1. Summary", ln=True)
     pdf.set_font("Courier", '', 10)
     summary_text = (f"Based on engine trend monitoring, Fuel Filter Delta Pressure of {res['Reg']} "
@@ -226,6 +185,7 @@ def generate_cnr_pdf(res, fig_bytes=None):
     pdf.multi_cell(0, 5, summary_text)
     pdf.ln(5)
 
+    # Analytics
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "2. Analytics", ln=True)
     pdf.set_font("Courier", '', 10)
     analytics_text = (f"The analysis results show that there is a possibility that a CNR will appear "
@@ -233,6 +193,7 @@ def generate_cnr_pdf(res, fig_bytes=None):
     pdf.multi_cell(0, 5, analytics_text)
     pdf.ln(5)
 
+    # Recommendation
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "3. Recommendation", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.multi_cell(0, 5, "Dear MS-MCC,")
@@ -247,6 +208,7 @@ def generate_cnr_pdf(res, fig_bytes=None):
                            f"troubleshooting process can be carried out."))
     pdf.ln(5)
 
+    # Supporting Info
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "4. Supporting Information", ln=True)
     pdf.set_font("Courier", '', 9)
     pdf.cell(55, 5, "Reference Baseline Date:"); pdf.cell(0, 5, res['Dates Info']['Ref Date'], ln=True)
@@ -254,6 +216,7 @@ def generate_cnr_pdf(res, fig_bytes=None):
     pdf.cell(55, 5, "Last Flight Date (CR/TO):"); pdf.cell(0, 5, f"{res['Dates Info']['Last Flight CR']} / {res['Dates Info']['Last Flight TO']}", ln=True)
     pdf.ln(3)
 
+    # Table
     pdf.set_font("Courier", 'B', 9)
     pdf.cell(30, 6, "Phase",          border=1, align='C')
     pdf.cell(40, 6, "Value at Ref.",  border=1, align='C')
@@ -267,30 +230,23 @@ def generate_cnr_pdf(res, fig_bytes=None):
         pdf.cell(40, 6, str(row['Value at Obs. Date']), border=1, align='C')
         pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
 
-    pdf.ln(5)
-
-    # --- LOGIKA BYPASS GAMBAR ---
-    if fig_bytes is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-            tmp.write(fig_bytes)
-            tmp_path = tmp.name
-
-        pdf.image(tmp_path, x=10, w=190)
-        os.unlink(tmp_path)
-    else:
-        pdf.ln(5)
-        pdf.set_font("Courier", 'I', 9)
-        pdf.set_text_color(100, 100, 100)
-        pdf.cell(0, 5, "* Visual degradation graph is omitted. Please refer to the ARCS Live Dashboard.", ln=True, align='C')
+    # Keterangan Pengganti Grafik
+    pdf.ln(10)
+    pdf.set_font("Courier", 'I', 9)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 5, "* Note: Visual degradation graphs are safely omitted from this document.", ln=True, align='C')
+    pdf.cell(0, 5, "  Please refer to the ARCS Live Interactive Dashboard for graphical analysis.", ln=True, align='C')
 
     pdf.ln(10)
     pdf.set_text_color(160, 160, 160)
     pdf.set_font("Courier", 'I', 8)
-    pdf.cell(0, 5, "ARCS Dashboard Generated.", ln=True, align='C')
+    pdf.cell(0, 5, "ARCS Enterprise Dashboard Generated.", ln=True, align='C')
     pdf.set_text_color(0, 0, 0)
 
-    return pdf.output(dest='S').encode('latin-1')
-    
+    # Return as bytes yang 100% aman untuk st.download_button
+    return bytes(pdf.output(dest='S').encode('latin-1'))
+
+
 # --- CSS TAMPILAN DASHBOARD UTAMA ---
 user_display_name = st.session_state['employee_name']
 st.markdown(f"""
@@ -357,23 +313,6 @@ RAPID_SHIFT_THRESHOLD  = 3.0
 GE_SOFT_LIMIT          = 14.0
 LOW_PRESSURE_SAFEGUARD = 10.0
 
-
-def physics_degradation_model(start_psi, drift_rate, steps):
-    preds = []
-    curr_epsilon = INITIAL_POROSITY
-    struct_term  = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
-    k_system     = max(start_psi, 0.1) / struct_term
-    for _ in range(steps):
-        blocking_effect  = drift_rate * (1 / (curr_epsilon + 0.05))
-        curr_epsilon    -= blocking_effect
-        if curr_epsilon < 0.05:
-            curr_epsilon = 0.05
-        new_struct_term = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
-        new_pressure    = k_system * new_struct_term
-        preds.append(new_pressure)
-    return np.array(preds)
-
-
 class StreamlitCallback(tf.keras.callbacks.Callback):
     def __init__(self, progress_bar, status_text, total_epochs):
         self.progress_bar = progress_bar
@@ -383,9 +322,7 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         pct = (epoch + 1) / self.total_epochs
         self.progress_bar.progress(pct)
-        self.status_text.text(
-            f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
-
+        self.status_text.text(f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
 
 # --- DASHBOARD UTAMA ---
 with st.container():
@@ -397,8 +334,7 @@ with st.container():
         uploaded_file = st.file_uploader("Upload Sensor Data (Excel/CSV)", type=['xlsx', 'csv'])
     with col_opt:
         st.markdown("<br>", unsafe_allow_html=True)
-        force_retrain = st.checkbox("Force Retrain AI Model", value=False,
-                                    help="Abaikan memori model yang tersimpan dan latih AI dari nol.")
+        force_retrain = st.checkbox("Force Retrain AI Model", value=False, help="Abaikan memori model yang tersimpan dan latih AI dari nol.")
 
     if st.button("Run Analysis", key="btn_run"):
         if uploaded_file is not None:
@@ -410,10 +346,8 @@ with st.container():
 
             status_text.text("📂 Reading Data...")
 
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file, skiprows=7)
-            else:
-                df = pd.read_excel(uploaded_file, skiprows=7)
+            if uploaded_file.name.endswith('.csv'): df = pd.read_csv(uploaded_file, skiprows=7)
+            else: df = pd.read_excel(uploaded_file, skiprows=7)
 
             df = df.iloc[:, [5, 3, 4, 10, 11, 1]].copy()
             df.columns = ['Date', 'ESN', 'Phase', 'Pressure_Raw', 'Pressure_Smoothed_Source', 'Aircraft_ID']
@@ -430,7 +364,6 @@ with st.container():
             progress_bar.progress(10)
 
             status_text.text("🛠️ Preprocessing & Time-Based Splitting...")
-
             engines          = sorted(df['ESN'].unique())
             processed_frames = []
 
@@ -458,7 +391,6 @@ with st.container():
                 processed_frames.append(df_eng)
 
             df_train_all = pd.concat(processed_frames)
-
             train_list, val_list = [], []
             for eng in engines:
                 eng_df     = df_train_all[df_train_all['ESN'] == eng].sort_values('Date')
@@ -482,7 +414,6 @@ with st.container():
             df_val_set['Age_Scaled']   = scaler_a.transform(df_val_set[['Filter_Age']])
 
             status_text.text("🗂️ Pre-filtering engine DataFrames...")
-
             df_by_esn         = {eng: df[df['ESN'] == eng].copy()             for eng in engines}
             processed_by_esn  = {eng: df_train_all[df_train_all['ESN'] == eng].copy() for eng in engines}
 
@@ -493,11 +424,7 @@ with st.container():
                 df_cruise_by_esn[eng]  = d[d['Phase'] == 'CRUISE' ].sort_values('Date').reset_index(drop=True)
                 df_climb_by_esn[eng]   = d[d['Phase'] == 'CLIMB'  ].sort_values('Date').reset_index(drop=True)
 
-            _phase_lookup = {
-                'CRUISE':  df_cruise_by_esn,
-                'TAKEOFF': df_takeoff_by_esn,
-                'CLIMB':   df_climb_by_esn,
-            }
+            _phase_lookup = {'CRUISE': df_cruise_by_esn, 'TAKEOFF': df_takeoff_by_esn, 'CLIMB': df_climb_by_esn}
 
             X_val_parts, y_val_parts = [], []
             for eng in df_val_set['ESN'].unique():
@@ -526,13 +453,11 @@ with st.container():
                 t0       = time.time()
                 model    = tf.keras.models.load_model(MODEL_PATH)
                 if os.path.exists(HISTORY_PATH):
-                    with open(HISTORY_PATH, 'r') as f:
-                        history_data = json.load(f)
+                    with open(HISTORY_PATH, 'r') as f: history_data = json.load(f)
                 train_time_min = (time.time() - t0) / 60.0
                 progress_bar.progress(50)
             else:
                 status_text.text("🧠 Training Neural Network from Scratch...")
-
                 X_parts, y_parts = [], []
                 for eng in df_train_set['ESN'].unique():
                     eng_data = df_train_set[df_train_set['ESN'] == eng]
@@ -555,11 +480,7 @@ with st.container():
                         tf.keras.layers.Dense(16, activation='relu'),
                         tf.keras.layers.Dense(1)
                     ])
-                    model.compile(
-                        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),
-                        loss='mean_squared_error'
-                    )
-
+                    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005), loss='mean_squared_error')
                     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
                     t0         = time.time()
 
@@ -569,32 +490,21 @@ with st.container():
                         epochs=50, batch_size=128, verbose=0,
                         callbacks=[early_stop, StreamlitCallback(progress_bar, status_text, 50)]
                     )
-
                     train_time_min = (time.time() - t0) / 60.0
                     history_data   = history.history
-
                     model.save(MODEL_PATH)
-                    with open(HISTORY_PATH, 'w') as f:
-                        json.dump(history_data, f)
+                    with open(HISTORY_PATH, 'w') as f: json.dump(history_data, f)
 
             _gru_step_compiled = None
             if model is not None:
-                _gru_step_compiled = tf.function(
-                    lambda x: model(x, training=False),
-                    reduce_retracing=True
-                )
+                _gru_step_compiled = tf.function(lambda x: model(x, training=False), reduce_retracing=True)
 
             _p_scale   = float(scaler_p.scale_[0])
             _p_min_off = float(scaler_p.min_[0])
-
-            def _scale_p(x: float) -> float:
-                return x * _p_scale + _p_min_off
-
-            def _unscale_p(x_s: float) -> float:
-                return (x_s - _p_min_off) / _p_scale
+            def _scale_p(x: float) -> float: return x * _p_scale + _p_min_off
+            def _unscale_p(x_s: float) -> float: return (x_s - _p_min_off) / _p_scale
 
             status_text.text("🎓 Calculating Global Academic Metrics (Thesis Requirement)...")
-
             if len(X_val_seq) > 0 and model is not None:
                 y_pred_scaled = model.predict(X_val_seq, verbose=0)
                 y_pred_real   = scaler_p.inverse_transform(y_pred_scaled).flatten()
@@ -618,8 +528,7 @@ with st.container():
                 if len(np.unique(y_val_class)) > 1:
                     fpr, tpr, _ = roc_curve(y_val_class, y_pred_real)
                     g_auc = auc(fpr, tpr)
-                else:
-                    fpr, tpr, g_auc = None, None, np.nan
+                else: fpr, tpr, g_auc = None, None, np.nan
 
                 feature_names = ['Pressure (PSI)', 'Filter Age']
                 importances   = {}
@@ -660,9 +569,7 @@ with st.container():
                 elapsed_str  = str(timedelta(seconds=int(elapsed_time)))
                 eta_str      = str(timedelta(seconds=int(eta_seconds)))
 
-                status_text.text(
-                    f"⚡ Running PGML Hybrid Forecast... ({current_step}/{total_engines}) "
-                    f"| Elapsed: {elapsed_str} | ETA: {eta_str}")
+                status_text.text(f"⚡ Running PGML Hybrid Forecast... ({current_step}/{total_engines}) | Elapsed: {elapsed_str} | ETA: {eta_str}")
                 progress_bar.progress(50 + int((current_step / total_engines) * 50))
 
                 df_eng_all       = df_by_esn[eng]
@@ -673,8 +580,7 @@ with st.container():
 
                 aircraft_reg   = "N/A"
                 possible_regs  = df_eng_all['Aircraft_ID'].dropna() if 'Aircraft_ID' in df_eng_all.columns else pd.Series([], dtype=str)
-                if not possible_regs.empty:
-                    aircraft_reg = str(possible_regs.iloc[-1])
+                if not possible_regs.empty: aircraft_reg = str(possible_regs.iloc[-1])
 
                 last_date          = df_eng_takeoff['Date'].iloc[-1] if not df_eng_takeoff.empty else dataset_latest_date
                 start_window_date  = last_date - timedelta(days=30)
@@ -698,40 +604,31 @@ with st.container():
                     baseline_row  = df_window.loc[min_idx]
                     baseline_psi  = baseline_row['Pressure_Final']
                     ref_date_val  = baseline_row['Date']
-
                     curr_row     = df_window.iloc[-1]
                     curr_psi     = curr_row['Pressure_Final']
                     obs_date_val = curr_row['Date']
                     shift_psi    = curr_psi - baseline_psi
-
                     ref_date_str = ref_date_val.strftime('%d-%b-%Y')
                     obs_date_str = obs_date_val.strftime('%d-%b-%Y')
 
-                    if curr_psi > GE_SOFT_LIMIT and shift_psi > RAPID_SHIFT_THRESHOLD:
-                        health_msg = "CRITICAL (CNR Triggered)"
-                    elif shift_psi > RAPID_SHIFT_THRESHOLD:
-                        health_msg = "WARNING (Rapid Shift)"
-                else:
-                    curr_psi = df_eng_takeoff['Pressure_Final'].iloc[-1] if not df_eng_takeoff.empty else 0
+                    if curr_psi > GE_SOFT_LIMIT and shift_psi > RAPID_SHIFT_THRESHOLD: health_msg = "CRITICAL (CNR Triggered)"
+                    elif shift_psi > RAPID_SHIFT_THRESHOLD: health_msg = "WARNING (Rapid Shift)"
+                else: curr_psi = df_eng_takeoff['Pressure_Final'].iloc[-1] if not df_eng_takeoff.empty else 0
 
                 if not df_window.empty and len(df_window) > 10:
                     iso       = IsolationForest(contamination='auto', random_state=42)
                     anomalies = iso.fit_predict(df_window[['Pressure_Final']])
                     scores    = iso.decision_function(df_window[['Pressure_Final']])
-
                     current_noise = df_window['Pressure_Final'].std()
-                    if pd.isna(current_noise):
-                        current_noise = 0.0
+                    if pd.isna(current_noise): current_noise = 0.0
 
                     if   curr_psi < 8.0:  noise_tolerance = 0.4
                     elif curr_psi < 11.0: noise_tolerance = 0.8
                     else:                 noise_tolerance = 1.5
 
-                    if (-1 in anomalies) and (min(scores) < -0.05) and (current_noise > noise_tolerance):
-                        anomaly_flag = True
+                    if (-1 in anomalies) and (min(scores) < -0.05) and (current_noise > noise_tolerance): anomaly_flag = True
 
-                if anomaly_flag and "CRITICAL" not in health_msg:
-                    health_msg = "WARNING (Sensor Anomaly Suspected)"
+                if anomaly_flag and "CRITICAL" not in health_msg: health_msg = "WARNING (Sensor Anomaly Suspected)"
 
                 last_to_row = df_eng_all[df_eng_all['Phase'] == 'TAKEOFF']['Date'].max()
                 last_cr_row = df_eng_all[df_eng_all['Phase'] == 'CRUISE' ]['Date'].max()
@@ -740,18 +637,15 @@ with st.container():
 
                 days_inactive = (dataset_latest_date - last_date).days
                 is_parked     = days_inactive > 30
-                if is_parked:
-                    health_msg = "PARKED"
+                if is_parked: health_msg = "PARKED"
 
                 cruise_trending_up = False
                 if not df_cruise.empty:
                     last_cruise = df_cruise['Pressure_Final'].tail(5).mean()
                     prev_cruise = df_cruise['Pressure_Final'].tail(10).head(5).mean()
-                    if last_cruise > (prev_cruise + 0.5):
-                        cruise_trending_up = True
+                    if last_cruise > (prev_cruise + 0.5): cruise_trending_up = True
 
-                if "WARNING" in health_msg and cruise_trending_up:
-                    health_msg = "CRITICAL (Multi-Phase Confirmed)"
+                if "WARNING" in health_msg and cruise_trending_up: health_msg = "CRITICAL (Multi-Phase Confirmed)"
 
                 cnr_table_data = []
                 for ph in ['CRUISE', 'TAKEOFF', 'CLIMB']:
@@ -762,19 +656,8 @@ with st.container():
                         val_ref     = df_ph_window.loc[nearest_idx, 'Pressure_Final']
                         val_obs     = df_ph_window['Pressure_Final'].iloc[-1]
                         change      = val_obs - val_ref
-                        cnr_table_data.append({
-                            "Flight Phase":       ph,
-                            "Value at Ref. Date": f"{val_ref:.4f}",
-                            "Value at Obs. Date": f"{val_obs:.4f}",
-                            "Overall Change":     f"{change:.4f}"
-                        })
-                    else:
-                        cnr_table_data.append({
-                            "Flight Phase":       ph,
-                            "Value at Ref. Date": "-",
-                            "Value at Obs. Date": "-",
-                            "Overall Change":     "-"
-                        })
+                        cnr_table_data.append({"Flight Phase": ph, "Value at Ref. Date": f"{val_ref:.4f}", "Value at Obs. Date": f"{val_obs:.4f}", "Overall Change": f"{change:.4f}"})
+                    else: cnr_table_data.append({"Flight Phase": ph, "Value at Ref. Date": "-", "Value at Obs. Date": "-", "Overall Change": "-"})
 
                 pred_date_str = planner_date_str = "-"
                 cycles_left = hours_left = 9999
@@ -791,10 +674,7 @@ with st.container():
                         eval_data      = eng_processed_data.iloc[test_start_idx:].copy()
 
                         if len(eval_data) > WINDOW_SIZE:
-                            eval_arr     = np.hstack([
-                                eval_data[['P_Scaled']].values,
-                                eval_data[['Age_Scaled']].values
-                            ])                                           
+                            eval_arr     = np.hstack([eval_data[['P_Scaled']].values, eval_data[['Age_Scaled']].values])                                           
                             X_eval       = build_sequences_strided(eval_arr, WINDOW_SIZE) 
                             actuals_real = eval_data['Pressure_Final'].values[WINDOW_SIZE:]
 
@@ -805,8 +685,7 @@ with st.container():
                             engine_rmse = np.sqrt(np.mean(np.square(actuals_real - preds_real)))
                             mean_actual = np.mean(actuals_real)
 
-                            if mean_actual > 0:
-                                engine_acc = max(0.0, min(100.0, 100.0 - ((engine_mae / mean_actual) * 100)))
+                            if mean_actual > 0: engine_acc = max(0.0, min(100.0, 100.0 - ((engine_mae / mean_actual) * 100)))
 
                             e_mape    = mean_absolute_percentage_error(actuals_real, preds_real) * 100 if mean_actual > 0 else 0
                             e_err_pct = (np.mean(np.abs(actuals_real - preds_real)) / mean_actual) * 100 if mean_actual > 0 else 0
@@ -824,9 +703,7 @@ with st.container():
                             if len(np.unique(y_val_class_e)) > 1:
                                 e_fpr, e_tpr, _ = roc_curve(y_val_class_e, preds_real)
                                 e_auc = auc(e_fpr, e_tpr)
-                            else:
-                                e_fpr = e_tpr = None
-                                e_auc = np.nan
+                            else: e_fpr = e_tpr = None; e_auc = np.nan
 
                             e_importances = {}
                             for i in range(2):
@@ -844,24 +721,15 @@ with st.container():
                                 for i in range(4):
                                     s = i * chunk_size
                                     e = (i + 1) * chunk_size if i < 3 else len(X_eval)
-                                    e_cv_scores.append(
-                                        np.sqrt(mean_squared_error(actuals_real[s:e], preds_real[s:e])))
+                                    e_cv_scores.append(np.sqrt(mean_squared_error(actuals_real[s:e], preds_real[s:e])))
 
                             eng_thesis_dict = {
-                                'rmse': engine_rmse, 'mae': engine_mae,
-                                'mape': e_mape,      'err_pct': e_err_pct,
-                                'acc': e_acc,        'prec': e_prec,
-                                'rec': e_rec,        'f1':   e_f1,
-                                'auc': e_auc,        'cm':   e_cm,
-                                'fpr': e_fpr,        'tpr':  e_tpr,
-                                'y_val_real':  actuals_real,
-                                'y_pred_real': preds_real,
-                                'importances': e_importances,
-                                'cv_scores':   e_cv_scores
+                                'rmse': engine_rmse, 'mae': engine_mae, 'mape': e_mape, 'err_pct': e_err_pct,
+                                'acc': e_acc, 'prec': e_prec, 'rec': e_rec, 'f1': e_f1, 'auc': e_auc, 'cm': e_cm,
+                                'fpr': e_fpr, 'tpr': e_tpr, 'y_val_real': actuals_real, 'y_pred_real': preds_real,
+                                'importances': e_importances, 'cv_scores': e_cv_scores
                             }
-
-                    except Exception:
-                        pass
+                    except Exception: pass
 
                 if insufficient_data or is_parked or "CRITICAL" in health_msg:
                     final_curve = np.array([curr_psi] * PREDICT_STEPS)
@@ -894,24 +762,19 @@ with st.container():
                             next_p_ai   = _unscale_p(next_scaled)
 
                             ai_drift = (next_p_ai - curr_psi_loop) * TAKEOFF_DAMPING_FACTOR
-                            if ai_drift < MIN_DRIFT_RATE:
-                                ai_drift = MIN_DRIFT_RATE
+                            if ai_drift < MIN_DRIFT_RATE: ai_drift = MIN_DRIFT_RATE
 
                             blocking_effect = ai_drift * (1 / (curr_epsilon + 0.05))
-                            if curr_psi_loop < 9.0:
-                                blocking_effect = min(blocking_effect, 0.0001)
-                            elif curr_psi_loop < 11.0:
-                                blocking_effect = min(blocking_effect, 0.001)
+                            if curr_psi_loop < 9.0: blocking_effect = min(blocking_effect, 0.0001)
+                            elif curr_psi_loop < 11.0: blocking_effect = min(blocking_effect, 0.001)
 
                             curr_epsilon -= blocking_effect
-                            if curr_epsilon < 0.05:
-                                curr_epsilon = 0.05
+                            if curr_epsilon < 0.05: curr_epsilon = 0.05
 
                             new_struct_term = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
                             next_p_physics  = k_system * new_struct_term
                             physics_drift   = next_p_physics - curr_psi_loop
-                            if physics_drift < MIN_DRIFT_RATE:
-                                physics_drift = MIN_DRIFT_RATE
+                            if physics_drift < MIN_DRIFT_RATE: physics_drift = MIN_DRIFT_RATE
 
                             trust_physics  = min(1.0, max(0.0, (curr_psi_loop - 9.0) / 4.0))
                             blended_drift  = (1 - trust_physics) * ai_drift + trust_physics * physics_drift
@@ -928,23 +791,19 @@ with st.container():
 
                             if curr_psi_loop >= MAX_Y_LIMIT:
                                 rem = PREDICT_STEPS - i - 1
-                                if rem > 0:
-                                    base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
+                                if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                 break
 
-                        mc_results  = vectorized_monte_carlo(
-                            curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
+                        mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
                         upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                         lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
                         final_curve = np.mean(mc_results, axis=0)
-
                         cross_idx = np.argmax(upper >= CUSTOM_TARGET)
 
                         if upper[cross_idx] >= CUSTOM_TARGET:
                             cycles_left = int(cross_idx)
                             hours_left  = cycles_left * HOURS_PER_CYCLE
                             days_left   = cycles_left / CYCLES_PER_DAY
-
                             cross_idx_mean = np.argmax(final_curve >= CUSTOM_TARGET)
                             cycles_late    = int(cross_idx_mean) if final_curve[cross_idx_mean] >= CUSTOM_TARGET else int(cycles_left * 1.1)
 
@@ -952,26 +811,17 @@ with st.container():
                             d_end        = last_date + timedelta(days=int(cycles_late / CYCLES_PER_DAY))
                             planner_date = d_start - timedelta(days=14)
 
-                            if planner_date <= datetime.now():
-                                planner_date_str = "ACTION REQUIRED NOW"
-                            else:
-                                planner_date_str = planner_date.strftime('%d %b %Y')
-
-                            pred_date_str = (d_start.strftime('%d %b %Y')
-                                             if d_start == d_end
-                                             else f"{d_start.strftime('%d %b')} - {d_end.strftime('%d %b %Y')}")
-                        else:
-                            pred_date_str    = "> 1.5 Years"
-                            planner_date_str = "N/A"
-
+                            if planner_date <= datetime.now(): planner_date_str = "ACTION REQUIRED NOW"
+                            else: planner_date_str = planner_date.strftime('%d %b %Y')
+                            pred_date_str = (d_start.strftime('%d %b %Y') if d_start == d_end else f"{d_start.strftime('%d %b')} - {d_end.strftime('%d %b %Y')}")
+                        else: pred_date_str = "> 1.5 Years"; planner_date_str = "N/A"
                     else:
                         final_curve = np.array([curr_psi] * PREDICT_STEPS)
                         upper = lower = final_curve
 
                 if not is_parked and not insufficient_data and "CRITICAL" not in health_msg:
                     if is_safe_zone:
-                        if "WARNING" not in health_msg:
-                            health_msg = "NORMAL"
+                        if "WARNING" not in health_msg: health_msg = "NORMAL"
                     else:
                         if   hours_left < 100:   health_msg = "CRITICAL"
                         elif hours_left < 300:   health_msg = "WARNING"
@@ -980,48 +830,23 @@ with st.container():
                 degradation_rate = 0.0
                 if ref_date_val and obs_date_val and ref_date_val != obs_date_val:
                     days_diff = (obs_date_val - ref_date_val).days
-                    if days_diff > 0:
-                        degradation_rate = shift_psi / days_diff
+                    if days_diff > 0: degradation_rate = shift_psi / days_diff
 
                 forecast_report.append({
-                    'ESN':          eng,
-                    'Reg':          aircraft_reg,
-                    'PSI':          round(curr_psi, 2),
-                    'Status':       health_msg,
-                    'Anomaly':      anomaly_flag,
-                    'Date':         pred_date_str,
-                    'Planner Date': planner_date_str,
-                    'Cycles':       cycles_left,
-                    'Hours':        hours_left,
-                    'Last Capture': last_date.strftime('%d-%b-%Y'),
-                    'Is Parked':    is_parked,
-                    'Data Density': recent_data_count,
-                    'CNR Table':    cnr_table_data,
-                    'Dates Info': {
-                        'Ref Date':       ref_date_str,
-                        'Obs Date':       obs_date_str,
-                        'Last Flight TO': last_flight_to,
-                        'Last Flight CR': last_flight_cr
-                    },
-                    'Reliability': {
-                        'Degradation Rate': degradation_rate,
-                        'Model RMSE':       engine_rmse,
-                        'Model MAE':        engine_mae,
-                        'Accuracy':         engine_acc
-                    },
-                    'Thesis':      eng_thesis_dict,
-                    'Plot Data':   (df_eng_takeoff, df_cruise, df_climb, final_curve, upper, lower, last_date),
-                    'Original DF': df_eng_all
+                    'ESN': eng, 'Reg': aircraft_reg, 'PSI': round(curr_psi, 2), 'Status': health_msg,
+                    'Anomaly': anomaly_flag, 'Date': pred_date_str, 'Planner Date': planner_date_str,
+                    'Cycles': cycles_left, 'Hours': hours_left, 'Last Capture': last_date.strftime('%d-%b-%Y'),
+                    'Is Parked': is_parked, 'Data Density': recent_data_count, 'CNR Table': cnr_table_data,
+                    'Dates Info': {'Ref Date': ref_date_str, 'Obs Date': obs_date_str, 'Last Flight TO': last_flight_to, 'Last Flight CR': last_flight_cr},
+                    'Reliability': {'Degradation Rate': degradation_rate, 'Model RMSE': engine_rmse, 'Model MAE': engine_mae, 'Accuracy': engine_acc},
+                    'Thesis': eng_thesis_dict, 'Plot Data': (df_eng_takeoff, df_cruise, df_climb, final_curve, upper, lower, last_date), 'Original DF': df_eng_all
                 })
 
             st.session_state['results']  = forecast_report
             st.session_state['engines']  = engines
             progress_bar.empty()
             status_text.success(f"✅ Analysis Complete! Total Elapsed Time: {elapsed_str}")
-
-        else:
-            st.error("Please upload the data file first.")
-
+        else: st.error("Please upload the data file first.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -1059,11 +884,7 @@ if st.session_state.get('results') is not None:
         else:                       return 'background-color: #28a745; color: white; font-weight: bold;'
 
     df_res.index = np.arange(1, len(df_res) + 1)
-    st.dataframe(
-        df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']]
-              .style.map(color_status, subset=['Status']),
-        use_container_width=True
-    )
+    st.dataframe(df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']].style.map(color_status, subset=['Status']), use_container_width=True)
 
     st.markdown("---")
     st.subheader("📈 Single Engine Detail (Multi-Phase Analysis)")
@@ -1083,9 +904,7 @@ if st.session_state.get('results') is not None:
             fig1.add_trace(go.Scatter(x=future_dates, y=lower, mode='lines', fill='tonexty', fillcolor='rgba(255,165,0,0.2)', line=dict(width=0), name='Confidence', hoverinfo='skip'))
             fig1.add_trace(go.Scatter(x=future_dates, y=final_curve, mode='lines', name='Forecast', line=dict(color='#dc3545', width=2, dash='dash')))
             if res_chart['Cycles'] != 9999:
-                fig1.add_annotation(xref="paper", yref="paper", x=0.02, y=0.9,
-                                    text=f"<b>Est. Replace:</b> {res_chart['Date']}<br>Earliest Rem. Cycles: {res_chart['Cycles']}",
-                                    showarrow=False, bgcolor="white", bordercolor="red", font=dict(color="red"))
+                fig1.add_annotation(xref="paper", yref="paper", x=0.02, y=0.9, text=f"<b>Est. Replace:</b> {res_chart['Date']}<br>Earliest Rem. Cycles: {res_chart['Cycles']}", showarrow=False, bgcolor="white", bordercolor="red", font=dict(color="red"))
 
         fig1.add_trace(go.Scatter(x=df_to['Date'], y=df_to['Pressure_Final'], mode='lines', name='Takeoff History (Raw)', line=dict(color='black', width=1.5)))
         if x_range_limit:
@@ -1093,22 +912,18 @@ if st.session_state.get('results') is not None:
             fig1.add_trace(go.Scatter(x=x_range_limit, y=[18]*2, mode='lines', line=dict(color='rgba(255,193,7,0.4)',   dash='solid'), name='Warning 18 PSI'))
             fig1.add_trace(go.Scatter(x=x_range_limit, y=[27]*2, mode='lines', line=dict(color='rgba(253,126,20,0.4)',  dash='solid'), name='Replace Next Flight 27 PSI'))
             fig1.add_trace(go.Scatter(x=x_range_limit, y=[33]*2, mode='lines', line=dict(color='rgba(0,0,0,0.4)',       dash='solid'), name='Bypass 33 PSI'))
-        fig1.update_layout(title="Phase: TAKEOFF (Main Analysis - Raw)", height=350,
-                           margin=dict(l=20, r=20, t=40, b=20), hovermode="x unified",
-                           template="plotly_white", yaxis=dict(range=[0, 35], title="PSID"))
+        fig1.update_layout(title="Phase: TAKEOFF (Main Analysis - Raw)", height=350, margin=dict(l=20, r=20, t=40, b=20), hovermode="x unified", template="plotly_white", yaxis=dict(range=[0, 35], title="PSID"))
         st.plotly_chart(fig1, use_container_width=True)
 
         col_c1, col_c2 = st.columns(2)
         with col_c1:
             fig2 = go.Figure()
-            if not df_cr.empty:
-                fig2.add_trace(go.Scatter(x=df_cr['Date'], y=df_cr['Pressure_Final'], mode='lines', name='Cruise', line=dict(color='#007bff')))
+            if not df_cr.empty: fig2.add_trace(go.Scatter(x=df_cr['Date'], y=df_cr['Pressure_Final'], mode='lines', name='Cruise', line=dict(color='#007bff')))
             fig2.update_layout(title="Phase: CRUISE (Correlation)", height=250, margin=dict(l=20, r=20, t=40, b=20), template="plotly_white", yaxis=dict(range=[0, 20]))
             st.plotly_chart(fig2, use_container_width=True)
         with col_c2:
             fig3 = go.Figure()
-            if not df_cl.empty:
-                fig3.add_trace(go.Scatter(x=df_cl['Date'], y=df_cl['Pressure_Final'], mode='lines', name='Climb', line=dict(color='#28a745')))
+            if not df_cl.empty: fig3.add_trace(go.Scatter(x=df_cl['Date'], y=df_cl['Pressure_Final'], mode='lines', name='Climb', line=dict(color='#28a745')))
             fig3.update_layout(title="Phase: CLIMB (Correlation)", height=250, margin=dict(l=20, r=20, t=40, b=20), template="plotly_white", yaxis=dict(range=[0, 25]))
             st.plotly_chart(fig3, use_container_width=True)
 
@@ -1131,14 +946,9 @@ if st.session_state.get('results') is not None:
         st.markdown(f"""
         <div style="background-color:white;padding:20px;border-radius:10px;border:1px solid #e0e0e0;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <div>
-              <h2 style="margin:0;color:#002561;font-size:24px;">{selected_esn}</h2>
-              <span style="font-size:14px;color:#666;">({res['Reg']})</span>
-            </div>
+            <div><h2 style="margin:0;color:#002561;font-size:24px;">{selected_esn}</h2><span style="font-size:14px;color:#666;">({res['Reg']})</span></div>
           </div>
-          <div style="margin-bottom:10px;">
-            <span style="background-color:{badge_color};color:white;padding:5px 12px;border-radius:15px;font-size:12px;font-weight:bold;">{res['Status']}</span>
-          </div>
+          <div style="margin-bottom:10px;"><span style="background-color:{badge_color};color:white;padding:5px 12px;border-radius:15px;font-size:12px;font-weight:bold;">{res['Status']}</span></div>
           <div style="margin-bottom:15px;">
             <p style="margin:0;color:#666;font-size:12px;text-transform:uppercase;">Current Pressure (T.O)</p>
             <span style="font-size:28px;font-weight:bold;color:#333;">{res['PSI']} <span style="font-size:14px;color:#888;font-weight:normal;">PSID</span></span>
@@ -1152,49 +962,21 @@ if st.session_state.get('results') is not None:
           <div style="font-size:13px;">
             <p style="margin:0;color:#888;font-size:11px;font-weight:600;">REPLACEMENT DUE RANGE</p>
             <p style="margin:0;font-weight:600;color:#005eb8;font-size:16px;">{res['Date']}</p>
-            <div style="display:flex;justify-content:space-between;margin-top:5px;">
-              <span>Earliest Rem. Cycles: <b>{res['Cycles']}</b></span>
-            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:5px;"><span>Earliest Rem. Cycles: <b>{res['Cycles']}</b></span></div>
           </div>
         </div>
         """, unsafe_allow_html=True)
-
         st.markdown("<br>", unsafe_allow_html=True)
 
-        try:
-            df_to_3m  = df_to[df_to['Date'] >= (last_date - timedelta(days=90))]
-            fig_pdf   = go.Figure()
-            if not res['Is Parked'] and "INSUFFICIENT" not in res['Status']:
-                fig_pdf.add_trace(go.Scatter(x=future_dates, y=upper, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
-                fig_pdf.add_trace(go.Scatter(x=future_dates, y=lower, mode='lines', fill='tonexty', fillcolor='rgba(255,165,0,0.2)', line=dict(width=0), name='Confidence', hoverinfo='skip'))
-                fig_pdf.add_trace(go.Scatter(x=future_dates, y=final_curve, mode='lines', name='Forecast', line=dict(color='#dc3545', width=2, dash='dash')))
-            fig_pdf.add_trace(go.Scatter(x=df_to_3m['Date'], y=df_to_3m['Pressure_Final'], mode='lines', name='Takeoff History (3 Months)', line=dict(color='black', width=1.5)))
-            x_range_pdf = [df_to_3m['Date'].min() if not df_to_3m.empty else last_date - timedelta(days=90), future_dates[-1]]
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[14]*2, mode='lines', line=dict(color='rgba(0,123,255,0.4)',  dash='solid'), name='Limit 14 PSI'))
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[18]*2, mode='lines', line=dict(color='rgba(255,193,7,0.4)',  dash='solid'), name='Warning 18 PSI'))
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[27]*2, mode='lines', line=dict(color='rgba(253,126,20,0.4)', dash='solid'), name='Replace Next Flight 27 PSI'))
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[33]*2, mode='lines', line=dict(color='rgba(0,0,0,0.4)',      dash='solid'), name='Bypass 33 PSI'))
-            fig_pdf.update_layout(title="Phase: TAKEOFF (Last 3 Months & Forecast)", height=350,
-                                  margin=dict(l=20, r=20, t=40, b=20), hovermode="x unified",
-                                  template="plotly_white", yaxis=dict(range=[0, 35], title="PSID"))
-            fig_bytes_pdf = fig_pdf.to_image(format="png", width=900, height=350, engine="kaleido")
-            pdf_bytes     = generate_cnr_pdf(res, fig_bytes_pdf)
-            st.download_button(
-                label="📄 Download Pre-Info Report (PDF)",
-                data=pdf_bytes,
-                file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
-                mime="application/pdf"
-            )
-        except Exception:
-            st.warning("⚠️ Fitur PDF butuh rendering engine (Kaleido). Silakan klik sekali lagi atau tunggu sesaat.")
-# Kita matikan paksa baris pemotretan Kaleido dengan tanda pagar (#)
-            # fig_bytes_pdf = fig_pdf.to_image(format="png", width=900, height=350, engine="kaleido")
-            
-            # Kita ubah baris pemanggilan PDF, ganti fig_bytes_pdf menjadi None
-            pdf_bytes     = generate_cnr_pdf(res, None)
-            
-            st.download_button(
-            )
+        # --- TOMBOL PDF MURNI TANPA KALEIDO ---
+        pdf_bytes = generate_cnr_pdf(res)
+        st.download_button(
+            label="📄 Download Pre-Info Report (PDF)",
+            data=pdf_bytes,
+            file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
+            mime="application/pdf"
+        )
+
         st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
         date_info = res['Dates Info']
         st.markdown(f"""
@@ -1205,19 +987,16 @@ if st.session_state.get('results') is not None:
         </div>
         """, unsafe_allow_html=True)
 
-
 # ==========================================
 # --- 7. TAMPILAN HASIL AKADEMIK (GLOBAL) ---
 # ==========================================
 if st.session_state.get('thesis_metrics') is not None:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("<hr style='border: 2px solid #005eb8;'>", unsafe_allow_html=True)
+    st.markdown("<br><br><hr style='border: 2px solid #005eb8;'>", unsafe_allow_html=True)
     st.markdown('<div class="thesis-section">', unsafe_allow_html=True)
     st.markdown("<h2 style='color:#002561;margin-top:0;'>🎓 Academic Evaluation (Global Fleet Metrics)</h2>", unsafe_allow_html=True)
     st.markdown("*Metrik di bawah ini dihitung menggunakan **Validation Set** dari **seluruh engine** yang diuji secara global.*")
 
     tm = st.session_state['thesis_metrics']
-
     col_t1, col_t2 = st.columns(2)
     with col_t1:
         st.markdown("### 1. Global Regression Metrics")
@@ -1242,7 +1021,6 @@ if st.session_state.get('thesis_metrics') is not None:
 
     st.markdown("---")
     st.markdown("### 3. Global Evaluation Plots")
-
     col_p1, col_p2, col_p3 = st.columns(3)
     with col_p1:
         df_scatter = pd.DataFrame({'Actual': tm['y_val_real'], 'Predicted': tm['y_pred_real']})
@@ -1254,8 +1032,7 @@ if st.session_state.get('thesis_metrics') is not None:
         st.plotly_chart(fig_scatter, use_container_width=True, key="scatter_g")
 
     with col_p2:
-        fig_cm = px.imshow(tm['cm'], text_auto=True, color_continuous_scale='Blues',
-                           x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title="Confusion Matrix (Global)")
+        fig_cm = px.imshow(tm['cm'], text_auto=True, color_continuous_scale='Blues', x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title="Confusion Matrix (Global)")
         fig_cm.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
         st.plotly_chart(fig_cm, use_container_width=True, key="cm_g")
 
@@ -1266,12 +1043,10 @@ if st.session_state.get('thesis_metrics') is not None:
             fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(color='navy', width=2, dash='dash')))
             fig_roc.update_layout(title="ROC Curve (Global)", margin=dict(l=20, r=20, t=40, b=20), height=300)
             st.plotly_chart(fig_roc, use_container_width=True, key="roc_g")
-        else:
-            st.info("⚠️ Data validasi tidak mengandung tekanan > 10 PSI. ROC Curve tidak dapat dibuat.")
+        else: st.info("⚠️ Data validasi tidak mengandung tekanan > 10 PSI. ROC Curve tidak dapat dibuat.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_p4, col_p5, col_p6 = st.columns(3)
-
     with col_p4:
         if tm['history'] and 'loss' in tm['history'] and 'val_loss' in tm['history']:
             epochs = list(range(1, len(tm['history']['loss']) + 1))
@@ -1282,29 +1057,24 @@ if st.session_state.get('thesis_metrics') is not None:
             st.plotly_chart(fig_lc, use_container_width=True, key="lc_g")
 
     with col_p5:
-        fig_fi = px.bar(x=list(tm['importances'].values()), y=list(tm['importances'].keys()),
-                        orientation='h', title="Feature Importance (Global)")
+        fig_fi = px.bar(x=list(tm['importances'].values()), y=list(tm['importances'].keys()), orientation='h', title="Feature Importance (Global)")
         fig_fi.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
         st.plotly_chart(fig_fi, use_container_width=True, key="fi_g")
 
     with col_p6:
         residuals = tm['y_val_real'] - tm['y_pred_real']
-        fig_res   = px.histogram(x=residuals, nbins=50, title="Error Distribution (Global)",
-                                 color_discrete_sequence=['#28a745'])
+        fig_res   = px.histogram(x=residuals, nbins=50, title="Error Distribution (Global)", color_discrete_sequence=['#28a745'])
         fig_res.add_vline(x=0, line_width=2, line_dash="dash", line_color="red")
         fig_res.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
         st.plotly_chart(fig_res, use_container_width=True, key="res_g")
 
     if len(tm['cv_scores']) == 4:
         folds  = ['Chron Chunk 1', 'Chron Chunk 2', 'Chron Chunk 3', 'Chron Chunk 4']
-        fig_cv = px.bar(x=folds, y=tm['cv_scores'], text=[f"{v:.3f}" for v in tm['cv_scores']],
-                        title="Time-Series Validation Stability (Global RMSE)")
+        fig_cv = px.bar(x=folds, y=tm['cv_scores'], text=[f"{v:.3f}" for v in tm['cv_scores']], title="Time-Series Validation Stability (Global RMSE)")
         fig_cv.update_traces(textposition='outside', marker_color='#17a2b8')
         fig_cv.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
         st.plotly_chart(fig_cv, use_container_width=True, key="cv_g")
-
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ==========================================
 # --- 8. ENGINE-SPECIFIC ACADEMIC EVALUATION ---
@@ -1348,8 +1118,7 @@ if st.session_state.get('results') is not None:
         with col_ep1:
             df_e_sc = pd.DataFrame({'Actual': tme['y_val_real'], 'Predicted': tme['y_pred_real']})
             if len(df_e_sc) > 1000: df_e_sc = df_e_sc.sample(1000, random_state=42)
-            fig_e_sc = px.scatter(df_e_sc, x='Actual', y='Predicted', opacity=0.6,
-                                  title=f"Actual vs Predicted ({selected_esn_temp})")
+            fig_e_sc = px.scatter(df_e_sc, x='Actual', y='Predicted', opacity=0.6, title=f"Actual vs Predicted ({selected_esn_temp})")
             mn_e = min(df_e_sc['Actual'].min(), df_e_sc['Predicted'].min())
             mx_e = max(df_e_sc['Actual'].max(), df_e_sc['Predicted'].max())
             fig_e_sc.add_trace(go.Scatter(x=[mn_e, mx_e], y=[mn_e, mx_e], mode='lines', name='Ideal', line=dict(color='red', dash='dash')))
@@ -1357,55 +1126,39 @@ if st.session_state.get('results') is not None:
             st.plotly_chart(fig_e_sc, use_container_width=True, key=f"scatter_e_{selected_esn_temp}")
 
         with col_ep2:
-            fig_e_cm = px.imshow(tme['cm'], text_auto=True, color_continuous_scale='Greens',
-                                 x=['Normal', 'Degraded'], y=['Normal', 'Degraded'],
-                                 title=f"Confusion Matrix ({selected_esn_temp})")
+            fig_e_cm = px.imshow(tme['cm'], text_auto=True, color_continuous_scale='Greens', x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title=f"Confusion Matrix ({selected_esn_temp})")
             fig_e_cm.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
             st.plotly_chart(fig_e_cm, use_container_width=True, key=f"cm_e_{selected_esn_temp}")
 
         with col_ep3:
             if tme['fpr'] is not None:
                 fig_e_roc = go.Figure()
-                fig_e_roc.add_trace(go.Scatter(x=tme['fpr'], y=tme['tpr'], mode='lines',
-                                               name=f"AUC = {tme['auc']:.2f}", line=dict(color='green', width=2)))
-                fig_e_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random',
-                                               line=dict(color='gray', width=2, dash='dash')))
-                fig_e_roc.update_layout(title=f"ROC Curve ({selected_esn_temp})",
-                                        margin=dict(l=20, r=20, t=40, b=20), height=300)
+                fig_e_roc.add_trace(go.Scatter(x=tme['fpr'], y=tme['tpr'], mode='lines', name=f"AUC = {tme['auc']:.2f}", line=dict(color='green', width=2)))
+                fig_e_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(color='gray', width=2, dash='dash')))
+                fig_e_roc.update_layout(title=f"ROC Curve ({selected_esn_temp})", margin=dict(l=20, r=20, t=40, b=20), height=300)
                 st.plotly_chart(fig_e_roc, use_container_width=True, key=f"roc_e_{selected_esn_temp}")
-            else:
-                st.info("⚠️ Data validasi mesin ini belum pernah melampaui 10 PSI. ROC Curve tidak dapat dihitung.")
+            else: st.info("⚠️ Data validasi mesin ini belum pernah melampaui 10 PSI. ROC Curve tidak dapat dihitung.")
 
         st.markdown("<br>", unsafe_allow_html=True)
         col_ep4, col_ep5, col_ep6 = st.columns(3)
-
-        with col_ep4:
-            st.info("ℹ️ **Model Learning Curve** tidak ditampilkan secara individual karena model AI dilatih secara terpusat (Global Fleet).")
+        with col_ep4: st.info("ℹ️ **Model Learning Curve** tidak ditampilkan secara individual karena model AI dilatih secara terpusat (Global Fleet).")
 
         with col_ep5:
-            fig_e_fi = px.bar(x=list(tme['importances'].values()), y=list(tme['importances'].keys()),
-                              orientation='h', title=f"Feature Importance ({selected_esn_temp})",
-                              color_discrete_sequence=['#28a745'])
+            fig_e_fi = px.bar(x=list(tme['importances'].values()), y=list(tme['importances'].keys()), orientation='h', title=f"Feature Importance ({selected_esn_temp})", color_discrete_sequence=['#28a745'])
             fig_e_fi.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
             st.plotly_chart(fig_e_fi, use_container_width=True, key=f"fi_e_{selected_esn_temp}")
 
         with col_ep6:
             e_res   = tme['y_val_real'] - tme['y_pred_real']
-            fig_e_r = px.histogram(x=e_res, nbins=30, title=f"Error Distribution ({selected_esn_temp})",
-                                   color_discrete_sequence=['#17a2b8'])
+            fig_e_r = px.histogram(x=e_res, nbins=30, title=f"Error Distribution ({selected_esn_temp})", color_discrete_sequence=['#17a2b8'])
             fig_e_r.add_vline(x=0, line_width=2, line_dash="dash", line_color="red")
             fig_e_r.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
             st.plotly_chart(fig_e_r, use_container_width=True, key=f"res_e_{selected_esn_temp}")
 
         if len(tme['cv_scores']) == 4:
-            fig_e_cv = px.bar(x=['Chunk 1', 'Chunk 2', 'Chunk 3', 'Chunk 4'],
-                              y=tme['cv_scores'], text=[f"{v:.3f}" for v in tme['cv_scores']],
-                              title=f"Validation Stability over Time ({selected_esn_temp})")
+            fig_e_cv = px.bar(x=['Chunk 1', 'Chunk 2', 'Chunk 3', 'Chunk 4'], y=tme['cv_scores'], text=[f"{v:.3f}" for v in tme['cv_scores']], title=f"Validation Stability over Time ({selected_esn_temp})")
             fig_e_cv.update_traces(textposition='outside', marker_color='#6f42c1')
             fig_e_cv.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
             st.plotly_chart(fig_e_cv, use_container_width=True, key=f"cv_e_{selected_esn_temp}")
-
         st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.warning("⚠️ Data akademis untuk mesin ini tidak cukup untuk di-generate "
-                   "(Minimal butuh 65 data points penerbangan pada porsi Validation Set).")
+    else: st.warning("⚠️ Data akademis untuk mesin ini tidak cukup untuk di-generate (Minimal butuh 65 data points penerbangan pada porsi Validation Set).")
