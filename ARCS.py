@@ -191,9 +191,8 @@ def vectorized_monte_carlo(curr_psi: float,
 
     return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
-
 # --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT ---
-def generate_cnr_pdf(res, fig_bytes):
+def generate_cnr_pdf(res, fig_bytes=None):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Courier", 'B', 16)
@@ -270,12 +269,19 @@ def generate_cnr_pdf(res, fig_bytes):
 
     pdf.ln(5)
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-        tmp.write(fig_bytes)
-        tmp_path = tmp.name
+    # --- LOGIKA BYPASS GAMBAR ---
+    if fig_bytes is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
+            tmp.write(fig_bytes)
+            tmp_path = tmp.name
 
-    pdf.image(tmp_path, x=10, w=190)
-    os.unlink(tmp_path)
+        pdf.image(tmp_path, x=10, w=190)
+        os.unlink(tmp_path)
+    else:
+        pdf.ln(5)
+        pdf.set_font("Courier", 'I', 9)
+        pdf.set_text_color(100, 100, 100)
+        pdf.cell(0, 5, "* Visual degradation graph is omitted. Please refer to the ARCS Live Dashboard.", ln=True, align='C')
 
     pdf.ln(10)
     pdf.set_text_color(160, 160, 160)
@@ -285,26 +291,6 @@ def generate_cnr_pdf(res, fig_bytes):
 
     return pdf.output(dest='S').encode('latin-1')
     
-# Jika ada gambar, proses. Jika tidak ada, beri keterangan teks.
-    if fig_bytes is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-            tmp.write(fig_bytes)
-            tmp_path = tmp.name
-        pdf.image(tmp_path, x=10, w=190)
-        os.unlink(tmp_path)
-    else:
-        pdf.set_font("Courier", 'I', 9)
-        pdf.set_text_color(120, 120, 120)
-        pdf.cell(0, 5, "* Catatan: Grafik visual degradasi dapat dilihat secara live pada Dashboard ARCS.", ln=True, align='C')
-
-    pdf.ln(10)
-    pdf.set_text_color(160, 160, 160)
-    pdf.set_font("Courier", 'I', 8)
-    pdf.cell(0, 5, "ARCS Dashboard Generated.", ln=True, align='C')
-    pdf.set_text_color(0, 0, 0)
-
-    return pdf.output(dest='S').encode('latin-1')
-
 # --- CSS TAMPILAN DASHBOARD UTAMA ---
 user_display_name = st.session_state['employee_name']
 st.markdown(f"""
