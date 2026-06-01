@@ -162,7 +162,7 @@ def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int,
     return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
 # --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT (NO KALEIDO) ---
-def generate_cnr_pdf(res):
+def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]"):
     pdf = FPDF()
     pdf.add_page()
     
@@ -187,25 +187,35 @@ def generate_cnr_pdf(res):
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
 
-    # Summary
+    # 1. Summary (Dengan Inline Bold)
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "1. Summary", ln=True)
     pdf.set_font("Courier", '', 10)
-    summary_text = (f"Based on engine trend monitoring, Fuel Filter Delta Pressure of {res['Reg']} "
-                    f"with ESN {res['ESN']} has gradually increased over the past three months, "
-                    f"with a significant increase in the last few days, reaching {res['PSI']} psid "
-                    f"during the takeoff phase.")
-    pdf.multi_cell(0, 5, summary_text)
-    pdf.ln(5)
+    pdf.write(5, "Based on engine trend monitoring, Fuel Filter Delta Pressure of ")
+    pdf.set_font("Courier", 'B', 10)
+    pdf.write(5, str(res['Reg']))
+    pdf.set_font("Courier", '', 10)
+    pdf.write(5, " with ")
+    pdf.set_font("Courier", 'B', 10)
+    pdf.write(5, f"ESN {res['ESN']}")
+    pdf.set_font("Courier", '', 10)
+    pdf.write(5, " has gradually increased over the past three months, with a significant increase in the last few days, reaching ")
+    pdf.set_font("Courier", 'B', 10)
+    pdf.write(5, f"{res['PSI']} psid")
+    pdf.set_font("Courier", '', 10)
+    pdf.write(5, " during the takeoff phase.")
+    pdf.ln(8)
 
-    # Analytics
+    # 2. Analytics (Dengan Inline Bold)
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "2. Analytics", ln=True)
     pdf.set_font("Courier", '', 10)
-    analytics_text = (f"The analysis results show that there is a possibility that a CNR will appear "
-                      f"regarding a contaminated fuel filter on {res['Date']}.")
-    pdf.multi_cell(0, 5, analytics_text)
-    pdf.ln(5)
+    pdf.write(5, "The analysis results show that there is a possibility that a CNR will appear regarding a contaminated fuel filter on ")
+    pdf.set_font("Courier", 'B', 10)
+    pdf.write(5, str(res['Date']))
+    pdf.set_font("Courier", '', 10)
+    pdf.write(5, ".")
+    pdf.ln(8)
 
-    # Recommendation
+    # 3. Recommendation (Dengan Inline Bold)
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "3. Recommendation", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.multi_cell(0, 5, "Dear MS-MCC,")
@@ -215,12 +225,14 @@ def generate_cnr_pdf(res):
                            "- Fuel Filter Element Installation (AMM TASK 73-11-02-400-801-H01)."))
     pdf.ln(3)
     pdf.multi_cell(0, 5, "Dear TLP,")
-    pdf.multi_cell(0, 5, (f"With this document, it is possible that a CNR will appear on the "
-                           f"{res['Date']}. Please to prepare ground time so that the CNR "
-                           f"troubleshooting process can be carried out."))
-    pdf.ln(5)
+    pdf.write(5, "With this document, it is possible that a CNR will appear on the ")
+    pdf.set_font("Courier", 'B', 10)
+    pdf.write(5, str(res['Date']))
+    pdf.set_font("Courier", '', 10)
+    pdf.write(5, ". Please to prepare ground time so that the CNR troubleshooting process can be carried out.")
+    pdf.ln(8)
 
-    # Supporting Info
+    # 4. Supporting Info
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "4. Supporting Information", ln=True)
     pdf.set_font("Courier", '', 9)
     pdf.cell(55, 5, "Reference Baseline Date:"); pdf.cell(0, 5, res['Dates Info']['Ref Date'], ln=True)
@@ -228,7 +240,7 @@ def generate_cnr_pdf(res):
     pdf.cell(55, 5, "Last Flight Date (CR/TO):"); pdf.cell(0, 5, f"{res['Dates Info']['Last Flight CR']} / {res['Dates Info']['Last Flight TO']}", ln=True)
     pdf.ln(3)
 
-    # Table
+    # Tabel
     pdf.set_font("Courier", 'B', 9)
     pdf.cell(30, 6, "Phase",          border=1, align='C')
     pdf.cell(40, 6, "Value at Ref.",  border=1, align='C')
@@ -242,18 +254,42 @@ def generate_cnr_pdf(res):
         pdf.cell(40, 6, str(row['Value at Obs. Date']), border=1, align='C')
         pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
 
-    # Keterangan Pengganti Grafik
-    pdf.ln(10)
-    pdf.set_font("Courier", 'I', 9)
-    pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, "* Note: Visual degradation graphs are safely omitted from this document.", ln=True, align='C')
-    pdf.cell(0, 5, "  Please refer to the ARCS Live Interactive Dashboard for graphical analysis.", ln=True, align='C')
+    # Catatan: Teks note lama (omitted graph) sudah dihapus sesuai instruksi
 
+    # ---------------------------------------------------------
+    # SIGNATURE BLOCK & DISCLAIMER
+    # ---------------------------------------------------------
     pdf.ln(10)
-    pdf.set_text_color(160, 160, 160)
-    pdf.set_font("Courier", 'I', 8)
-    pdf.cell(0, 5, "ARCS Enterprise Dashboard Generated.", ln=True, align='C')
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Courier", 'I', 10)
+    pdf.cell(0, 5, "Best Regards,", ln=True)
+    pdf.cell(0, 5, user_name, ln=True)
+    pdf.cell(0, 5, "Powerplant Engineering - TEA 2", ln=True)
+    pdf.ln(3)
+
+    # Load Logo GMF (jika file ada)
+    if os.path.exists("GMF.png"):
+        pdf.image("GMF.png", x=pdf.get_x(), w=40)
+        pdf.ln(3)
+    else:
+        pdf.ln(15) # Spasi cadangan jika gambar belum terbaca server
+
+    pdf.set_font("Courier", 'I', 10)
+    pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
+    pdf.cell(0, 5, f"P : {user_phone}", ln=True)
+    pdf.cell(0, 5, f"E : {user_email}", ln=True)
+
+    # Confidentiality Disclaimer (Opacity rendah / Abu-abu)
+    pdf.ln(10)
+    pdf.set_text_color(150, 150, 150)
+    pdf.set_font("Courier", 'I', 7)
+    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies."
+    pdf.multi_cell(0, 4, disclaimer_text, align='L')
+
+    # Timestamp UTC
+    utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
+    pdf.ln(2)
+    pdf.cell(0, 4, f"ARCS Dashboard Generated on {utc_now}Z", ln=True, align='L')
+    pdf.set_text_color(0, 0, 0) # Kembalikan warna ke hitam normal
 
     # Return as bytes yang 100% aman untuk st.download_button
     return bytes(pdf.output(dest='S').encode('latin-1'))
