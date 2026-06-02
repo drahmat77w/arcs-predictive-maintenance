@@ -339,7 +339,19 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
         pdf.set_font("Courier", '', 10)
         pdf.multi_cell(0, 5, str(notes).strip())
         pdf.ln(5)
-
+        
+    # --- FITUR DISCLAIMER FORECAST ---
+    if pdf.get_y() > 245:
+        pdf.add_page()
+    else:
+        pdf.ln(5)
+        
+    pdf.set_font("Courier", 'B', 10)
+    pdf.cell(0, 5, "DISCLAIMER:", ln=True)
+    pdf.set_font("Courier", 'I', 9)
+    pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.")
+    pdf.ln(5)
+    
     # ---------------------------------------------------------
     # SIGNATURE BLOCK & DISCLAIMER
     # ---------------------------------------------------------
@@ -364,8 +376,8 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
 
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
-    pdf.cell(0, 5, f"P : {user_phone}", ln=True)
-    pdf.cell(0, 5, f"E : {user_email}", ln=True)
+    pdf.cell(0, 5, f"Phone : {user_phone}", ln=True)
+    pdf.cell(0, 5, f"Email : {user_email}", ln=True)
 
     # Confidentiality Disclaimer
     pdf.ln(5)
