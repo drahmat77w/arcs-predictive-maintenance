@@ -1125,7 +1125,7 @@ if st.session_state.get('results') is not None:
         
         st.markdown("---")
         # Fitur Upload Gambar (Mendukung banyak file dan format)
-        uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
+        uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik, gambar, atau data tambahan.")
         
         st.markdown("---")
         # Fitur Notes (Aktif jika dicentang)
