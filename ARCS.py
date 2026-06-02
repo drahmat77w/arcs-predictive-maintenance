@@ -1174,7 +1174,7 @@ if st.session_state.get('results') is not None:
 if st.session_state.get('thesis_metrics') is not None:
     st.markdown("<br><br><hr style='border: 2px solid #005eb8;'>", unsafe_allow_html=True)
     
-    with st.expander("🎓 Academic Evaluation (Global Fleet Metrics)", expanded=False):
+    with st.expander("Accuracy Evaluation (Global Fleet Metrics)", expanded=False):
         st.markdown('<div class="thesis-section">', unsafe_allow_html=True)
         st.markdown("<h2 style='color:#002561;margin-top:0;'>Global Fleet Metrics</h2>", unsafe_allow_html=True)
         st.markdown("*Metrik di bawah ini dihitung menggunakan **Validation Set** dari **seluruh engine** yang diuji secara global.*")
