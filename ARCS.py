@@ -137,7 +137,7 @@ st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
 if nav_engine == "GE90-115B":
-    nav_module = st.sidebar.radio("Module", ["Fuel Filter Forecasting", "Engine Health Analytics"])
+    nav_module = st.sidebar.radio("Module", ["Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
 else:
     nav_module = st.sidebar.radio("Module", ["Engine Health Analytics"])
 
@@ -461,7 +461,7 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
 # ==========================================
 with st.container():
     st.markdown('<div class="card-tool">', unsafe_allow_html=True)
-    st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Operational Dashboard: {nav_engine}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Fuel Filter Replacement Forecasting: {nav_engine}</h2>', unsafe_allow_html=True)
 
     col_up, col_opt = st.columns([3, 1])
     with col_up:
