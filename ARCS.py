@@ -5,6 +5,7 @@ import math
 import json
 import io
 import tempfile
+import base64
 
 # ==========================================
 # 1. AUTO-FIX: INSTALL LIBRARY OTOMATIS
@@ -51,7 +52,8 @@ import warnings
 import random
 
 # --- 2. KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="ARCS | Aircraft Reliability Control Systems", layout="wide", page_icon="✈️")
+# Memaksa sidebar agar selalu terbuka (expanded) di awal
+st.set_page_config(page_title="ARCS | Aircraft Reliability Control Systems", layout="wide", page_icon="✈️", initial_sidebar_state="expanded")
 
 # --- INISIALISASI SESSION STATE ---
 if 'logged_in' not in st.session_state:
@@ -81,41 +83,28 @@ def reset_seeds(seed=42):
 if not st.session_state['logged_in']:
     st.markdown("""
         <style>
-            /* Latar belakang gradien biru */
             .stApp { background: linear-gradient(135deg, #1c3c7e 0%, #0a1938 100%); }
-            header[data-testid="stHeader"] { display: none; }
             
-            /* Trik CSS: Mewarnai Kolom Tengah Streamlit menjadi Kotak Putih */
+            /* Sembunyikan deploy button saja, biarkan stHeader transparan */
+            header[data-testid="stHeader"] { background: transparent !important; }
+            .stDeployButton { display: none !important; }
+            
             div[data-testid="column"]:nth-of-type(2) {
-                background-color: white; 
-                padding: 40px 50px; 
-                border-radius: 12px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+                background-color: white; padding: 40px 50px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
             }
-            
-            /* Mempercantik kotak input dan tombol */
             .stTextInput input { border-radius: 6px; padding: 10px 15px; border: 1px solid #ddd; background-color: #f8f9fa; color: #333;}
             div.stButton > button {
-                width: 100%; background-color: #2563eb; color: white; font-weight: bold;
-                border-radius: 6px; padding: 10px; border: none; margin-top: 10px;
+                width: 100%; background-color: #2563eb; color: white; font-weight: bold; border-radius: 6px; padding: 10px; border: none; margin-top: 10px;
             }
             div.stButton > button:hover { background-color: #1d4ed8; color: white; }
-            
-            /* Copyright text */
             .footer-login {
-                position: fixed; bottom: 20px; width: 100%; text-align: center;
-                color: rgba(255,255,255,0.7); font-size: 12px; left: 0;
+                position: fixed; bottom: 20px; width: 100%; text-align: center; color: rgba(255,255,255,0.7); font-size: 12px; left: 0;
             }
         </style>
     """, unsafe_allow_html=True)
-
-    # Spasi atas agar kotak turun ke tengah
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-
-    # Membuat 3 kolom, kita gunakan kolom ke-2 (tengah) sebagai kotak login
     _, col2, _ = st.columns([1, 1.2, 1])
     with col2:
-        # Teks Logo ARCS
         st.markdown("""
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
                 <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #FFF; letter-spacing: 1px; line-height: 1;">ARCS</h1>
@@ -127,10 +116,8 @@ if not st.session_state['logged_in']:
             </div>
             <h3 style="font-size: 16px; margin-bottom: 5px; color: #FFF;">Login</h3>
         """, unsafe_allow_html=True)
-
         username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
         password = st.text_input("Password", placeholder="Password", type="password", label_visibility="collapsed")
-        
         if st.button("Log In"):
             if password == "TEA2" and username.strip():
                 st.session_state['logged_in'] = True
@@ -138,15 +125,104 @@ if not st.session_state['logged_in']:
                 st.rerun()
             else:
                 st.error("Invalid Username or Password.")
-        
         st.markdown('<div style="text-align:center; font-size: 11px; color: #888; margin-top:10px; margin-bottom: 10px;">Need help logging in? <a href="#" style="color:#2563eb; text-decoration:none;">Contact the ARCS Help Desk</a></div>', unsafe_allow_html=True)
-    
     st.markdown('<div class="footer-login">Copyright ©2026 Engineering Services GMF AeroAsia In Collaboration with Diponegoro University. All rights reserved.</div>', unsafe_allow_html=True)
     st.stop()
 
 
 # ==========================================
-# 4. FUNGSI TEKNIS & PDF
+# 4. SIDEBAR & NAVIGATION ROUTING
+# ==========================================
+st.sidebar.markdown("### ✈️ Fleet Navigation")
+nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
+
+if nav_engine == "GE90-115B":
+    nav_module = st.sidebar.radio("Module", ["Fuel Filter Forecasting", "Engine Health Analytics"])
+else:
+    nav_module = st.sidebar.radio("Module", ["Engine Health Analytics"])
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🚪 Log Out", use_container_width=True):
+    st.session_state['logged_in'] = False
+    st.rerun()
+
+
+# ==========================================
+# 5. CSS & HEADER DASHBOARD UTAMA
+# ==========================================
+def get_base64_image(file_path):
+    try:
+        with open(file_path, "rb") as f: return base64.b64encode(f.read()).decode()
+    except Exception: return None
+
+te_logo_b64 = get_base64_image("TE.png")
+if te_logo_b64:
+    logo_html = f'<img src="data:image/png;base64,{te_logo_b64}" style="height: 45px; margin-top: 2px;">'
+else:
+    logo_html = '<div style="color:#002561; font-weight:bold; font-size:20px;">Engineering Services</div>'
+
+user_display_name = st.session_state['employee_name']
+
+# Injeksi CSS Khusus Dashboard (Aman dan Anti-Gagal)
+st.markdown(f"""
+    <style>
+        body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f4f4; color: #333; }}
+        .stApp {{ background: #f4f4f4 !important; background-color: #f4f4f4 !important; }}
+        
+        /* Memastikan Header bawaan tembus pandang, TOMBOL HAMBURGER DIJAMIN MUNCUL */
+        header[data-testid="stHeader"] {{ background: transparent !important; }}
+        .stDeployButton {{ display: none !important; }}
+        
+        /* Memberikan ruang di atas agar Header Kustom kita tidak menabrak tombol Hamburger Streamlit */
+        .block-container {{ padding-top: 3.5rem !important; }}
+        
+        .garuda-header {{
+            background-color: #ffffff; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+            padding: 15px 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-bottom: 2px solid #005eb8;
+            border-radius: 8px; margin-bottom: 20px; gap: 15px;
+        }}
+        .header-left {{ display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }}
+        .header-title {{ color: #002561; font-size: 20px; font-weight: 800; text-transform: uppercase; margin: 0; letter-spacing: 0.5px;}}
+        .login-link {{ text-decoration: none; color: #005eb8; font-size: 14px; font-weight: 500; display: flex; align-items: center; }}
+        
+        .card-tool {{ background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 100%; margin-bottom: 20px; }}
+        div.stButton > button {{ padding: 14px; background-color: #005eb8; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }}
+        div.stButton > button:hover {{ background-color: #002561; color: white; }}
+        .cnr-table {{ width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 15px; margin-bottom: 20px; }}
+        .cnr-table th {{ background-color: #f1f3f5; color: #495057; font-weight: 600; text-align: left; padding: 8px; border-bottom: 2px solid #dee2e6; }}
+        .cnr-table td {{ padding: 8px; border-bottom: 1px solid #dee2e6; color: #212529; }}
+        .info-box {{ background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; margin-top: 15px; margin-bottom: 15px; font-size: 13px; }}
+        .info-row {{ display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #ddd; padding-bottom: 3px; }}
+        .info-label {{ font-weight: 600; color: #555; }}
+        .info-val {{ color: #000; font-weight: 500; }}
+        .streamlit-expanderHeader {{ font-weight: bold; color: #002561; background-color: #e9ecef; border-radius: 5px; }}
+        .thesis-section {{ padding: 10px; }}
+    </style>
+""", unsafe_allow_html=True)
+
+# Injeksi Komponen HTML Header
+st.markdown(f"""
+    <div class="garuda-header">
+        <div class="header-left">
+            <div style="padding-right:15px; border-right: 2px solid #ddd; display: flex; align-items: center;">
+                {logo_html}
+            </div>
+            <h1 class="header-title">Aircraft Reliability Control Systems</h1>
+        </div>
+        <div class="header-right"><a href="#" class="login-link">Hello, {user_display_name}!</a></div>
+    </div>
+""", unsafe_allow_html=True)
+
+
+# ----------------- HALAMAN COMING SOON -----------------
+if nav_module == "Engine Health Analytics":
+    st.markdown(f"<br><br><br><h1 style='text-align: center; color: #555;'>🚧 Coming Soon</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align: center; color: #888;'>The {nav_module} module for {nav_engine} is currently under development.</h4>", unsafe_allow_html=True)
+    st.stop()
+
+
+# ==========================================
+# 6. FUNGSI TEKNIS & PDF
 # ==========================================
 def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
     N, F = arr2d.shape
@@ -164,8 +240,6 @@ def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int,
     drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
     return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
-
-# --- TEMPLATE KERTAS DENGAN FOOTER (NOMOR HALAMAN & TIMESTAMP) ---
 class PDFReport(FPDF):
     def __init__(self):
         super().__init__()
@@ -175,22 +249,18 @@ class PDFReport(FPDF):
         self.set_y(-15)
         self.set_font("Courier", 'I', 7)
         self.set_text_color(153, 153, 153)
-        self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}z", align='L')
+        self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
         self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
-
-# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT ---
 def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", images_bytes_list=None, notes=None):
     pdf = PDFReport()
     pdf.alias_nb_pages()
     pdf.add_page()
     
-    # Judul
     pdf.set_font("Courier", 'B', 16)
     pdf.cell(0, 10, "Pre-Info Notification", ln=True, align='C')
     pdf.ln(5)
 
-    # Identitas
     pdf.set_font("Courier", 'B', 10)
     pdf.cell(40, 6, "Airline/Customer:"); pdf.set_font("Courier", '', 10); pdf.cell(70, 6, "PT Garuda Indonesia Persero Tbk")
     pdf.set_font("Courier", 'B', 10); pdf.cell(35, 6, "Aircraft Tail:"); pdf.set_font("Courier", '', 10); pdf.cell(45, 6, str(res['Reg']), ln=True)
@@ -206,7 +276,6 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(5)
 
-    # 1. Summary
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "1. Summary", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.write(5, "Based on engine trend monitoring, Fuel Filter Delta Pressure of ")
@@ -224,7 +293,6 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.write(5, " during the takeoff phase.")
     pdf.ln(8)
 
-    # 2. Analytics
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "2. Analytics", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.write(5, "The analysis results show that there is a possibility that a CNR will appear regarding a contaminated fuel filter on ")
@@ -234,7 +302,6 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.write(5, ".")
     pdf.ln(8)
 
-    # 3. Recommendation
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "3. Recommendation", ln=True)
     pdf.set_font("Courier", '', 10)
     pdf.multi_cell(0, 5, "Dear MS-MCC,")
@@ -251,7 +318,6 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.write(5, ". Please to prepare ground time so that the CNR troubleshooting process can be carried out.")
     pdf.ln(8)
 
-    # 4. Supporting Info
     pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "4. Supporting Information", ln=True)
     pdf.set_font("Courier", '', 9)
     pdf.cell(55, 5, "Reference Baseline Date:"); pdf.cell(0, 5, res['Dates Info']['Ref Date'], ln=True)
@@ -259,7 +325,6 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.cell(55, 5, "Last Flight Date (CR/TO):"); pdf.cell(0, 5, f"{res['Dates Info']['Last Flight CR']} / {res['Dates Info']['Last Flight TO']}", ln=True)
     pdf.ln(3)
 
-    # Tabel
     pdf.set_font("Courier", 'B', 9)
     pdf.cell(30, 6, "Phase",          border=1, align='C')
     pdf.cell(40, 6, "Value at Ref.",  border=1, align='C')
@@ -274,45 +339,31 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
         pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
     pdf.ln(5)
 
-    # --- FITUR UPLOAD BANYAK GAMBAR (AUTO SCALING & PAGE BREAK) ---
     if images_bytes_list and len(images_bytes_list) > 0:
         for img_bytes in images_bytes_list:
             try:
-                # Membuka file gambar (mendukung berbagai macam format yang akan diconvert via Pillow)
                 img = Image.open(io.BytesIO(img_bytes))
-                
-                # Jika gambar memiliki transparansi (RGBA, dll), ubah jadi RGB dengan background putih
                 if img.mode in ('RGBA', 'P', 'LA'):
                     background = Image.new('RGB', img.size, (255, 255, 255))
-                    if len(img.split()) >= 4:
-                        background.paste(img, mask=img.split()[3])
-                    else:
-                        background.paste(img)
+                    if len(img.split()) >= 4: background.paste(img, mask=img.split()[3])
+                    else: background.paste(img)
                     img = background
-                elif img.mode != 'RGB':
-                    img = img.convert('RGB')
+                elif img.mode != 'RGB': img = img.convert('RGB')
                 
-                # Kalkulasi dimensi proporsional
                 img_w_px, img_h_px = img.size
                 aspect_ratio = img_h_px / img_w_px
-                
-                pdf_w = 190 # Lebar maksimal konten di kertas A4
+                pdf_w = 190 
                 pdf_h = pdf_w * aspect_ratio
                 
-                # Jika tinggi gambar lebih besar dari batas aman 1 halaman (240mm), perkecil proporsional
                 x_pos = 10
                 if pdf_h > 240:
                     pdf_h = 240
                     pdf_w = pdf_h / aspect_ratio
-                    x_pos = 10 + (190 - pdf_w) / 2 # Posisikan gambar di tengah-tengah
+                    x_pos = 10 + (190 - pdf_w) / 2 
                 
-                # Jika sisa ruang (Y) + tinggi gambar melampaui batas margin bawah, buat halaman baru
-                if pdf.get_y() + pdf_h > 270:
-                    pdf.add_page()
-                else:
-                    pdf.ln(5)
+                if pdf.get_y() + pdf_h > 270: pdf.add_page()
+                else: pdf.ln(5)
                 
-                # Simpan sementara sebagai JPEG agar 100% kompatibel dengan FPDF
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
                     img.save(tmp, format='JPEG', quality=95)
                     tmp_path = tmp.name
@@ -321,45 +372,29 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
                 os.unlink(tmp_path)
                 pdf.ln(5)
             except Exception as e:
-                pdf.set_font("Courier", 'I', 9)
-                pdf.set_text_color(255, 0, 0)
+                pdf.set_font("Courier", 'I', 9); pdf.set_text_color(255, 0, 0)
                 pdf.cell(0, 5, f"[Error processing uploaded image: {e}]", ln=True)
-                pdf.set_text_color(0, 0, 0)
-                pdf.ln(5)
+                pdf.set_text_color(0, 0, 0); pdf.ln(5)
 
-    # --- FITUR NOTES KHUSUS ---
     if notes and str(notes).strip() != "":
-        # Cek apakah butuh halaman baru untuk Notes
-        if pdf.get_y() > 250:
-            pdf.add_page()
-        else:
-            pdf.ln(2)
-            
+        if pdf.get_y() > 250: pdf.add_page()
+        else: pdf.ln(2)
         pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "6. Notes", ln=True)
         pdf.set_font("Courier", '', 10)
         pdf.multi_cell(0, 5, str(notes).strip())
         pdf.ln(5)
-        
-    # --- FITUR DISCLAIMER FORECAST ---
-    if pdf.get_y() > 245:
-        pdf.add_page()
-    else:
-        pdf.ln(5)
+
+    if pdf.get_y() > 245: pdf.add_page()
+    else: pdf.ln(5)
         
     pdf.set_font("Courier", 'B', 10)
     pdf.cell(0, 5, "DISCLAIMER:", ln=True)
-    pdf.set_font("Courier", 'IB', 9)
+    pdf.set_font("Courier", 'I', 9)
     pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.")
     pdf.ln(5)
-    
-    # ---------------------------------------------------------
-    # SIGNATURE BLOCK & DISCLAIMER
-    # ---------------------------------------------------------
-    # Cek batas kertas untuk blok Tanda Tangan
-    if pdf.get_y() > 220:
-        pdf.add_page()
-    else:
-        pdf.ln(5) 
+
+    if pdf.get_y() > 220: pdf.add_page()
+    else: pdf.ln(5) 
         
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "Best Regards,", ln=True)
@@ -367,75 +402,28 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.cell(0, 5, "Powerplant Engineering - TEA 2", ln=True)
     pdf.ln(3)
 
-    # Load Logo GMF
     if os.path.exists("GMF.png"):
         pdf.image("GMF.png", x=pdf.get_x(), w=40)
         pdf.ln(3)
-    else:
-        pdf.ln(5) 
+    else: pdf.ln(5) 
 
     pdf.set_font("Courier", 'I', 10)
     pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
-    pdf.cell(0, 5, f"Phone : {user_phone}", ln=True)
-    pdf.cell(0, 5, f"Email : {user_email}", ln=True)
+    pdf.cell(0, 5, f"P : {user_phone}", ln=True)
+    pdf.cell(0, 5, f"E : {user_email}", ln=True)
 
-    # Confidentiality Disclaimer
     pdf.ln(5)
     pdf.set_text_color(150, 150, 150)
     pdf.set_font("Courier", 'I', 7)
-    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies. Please do not distribute without permission."
+    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies."
     pdf.multi_cell(0, 4, disclaimer_text, align='L')
     pdf.set_text_color(0, 0, 0) 
 
     return bytes(pdf.output(dest='S').encode('latin-1'))
 
-
-# --- CSS TAMPILAN DASHBOARD UTAMA ---
-user_display_name = st.session_state['employee_name']
-st.markdown(f"""
-    <style>
-        body {{ margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f4f4; color: #333; }}
-        .stApp {{ background: #f4f4f4 !important; background-color: #f4f4f4 !important; }}
-        header[data-testid="stHeader"] {{ display: block !important; }}
-        .garuda-header {{
-            background-color: #ffffff; display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 40px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-bottom: 1px solid #e0e0e0;
-            position: sticky; top: 0; z-index: 1000; margin-bottom: 20px; margin-top: -60px;
-        }}
-        .header-left {{ display: flex; align-items: center; gap: 20px; }}
-        .header-title {{ color: #002561; font-size: 20px; font-weight: 700; text-transform: uppercase; margin: 0; }}
-        .header-right {{ display: flex; align-items: center; }}
-        .login-link {{ text-decoration: none; color: #005eb8; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }}
-        .card-tool {{ background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 100%; margin-bottom: 20px; }}
-        div.stButton > button {{ width: 100%; padding: 14px; background-color: #005eb8; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }}
-        div.stButton > button:hover {{ background-color: #002561; color: white; }}
-        .block-container {{padding-top: 1rem;}}
-        .cnr-table {{ width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 15px; margin-bottom: 20px; }}
-        .cnr-table th {{ background-color: #f1f3f5; color: #495057; font-weight: 600; text-align: left; padding: 8px; border-bottom: 2px solid #dee2e6; }}
-        .cnr-table td {{ padding: 8px; border-bottom: 1px solid #dee2e6; color: #212529; }}
-        .info-box {{ background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; margin-top: 15px; margin-bottom: 15px; font-size: 13px; }}
-        .info-row {{ display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px dashed #ddd; padding-bottom: 3px; }}
-        .info-label {{ font-weight: 600; color: #555; }}
-        .info-val {{ color: #000; font-weight: 500; }}
-        .metric-card {{ background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #eee; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 100%; }}
-        .metric-title {{ font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }}
-        .metric-value {{ font-size: 20px; font-weight: 700; color: #002561; margin: 5px 0; }}
-        .metric-sub {{ font-size: 11px; color: #888; }}
-        .thesis-section {{ background-color: #e9ecef; padding: 30px; border-radius: 10px; margin-top: 50px; border-top: 4px solid #005eb8; }}
-        .engine-thesis-section {{ background-color: #ffffff; padding: 30px; border-radius: 10px; margin-top: 30px; border-top: 4px solid #28a745; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
-    </style>
-    <header class="garuda-header">
-        <div class="header-left">
-            <div style="text-align: right; line-height: 1.1; margin-right:15px;">
-                <div style="color:#002561; font-weight:bold; font-size:20px;">Engineering Services</div>
-            </div>
-            <h1 class="header-title">Aircraft Reliability Control Systems</h1>
-        </div>
-        <div class="header-right"><a href="#" class="login-link">Hello, {user_display_name}!</a></div>
-    </header>
-""", unsafe_allow_html=True)
-
-# --- LOGIKA FISIKA & PARAMETER AI ---
+# ==========================================
+# 7. LOGIKA FISIKA & PARAMETER AI 
+# ==========================================
 warnings.filterwarnings('ignore')
 
 CYCLES_PER_DAY         = 2
@@ -467,10 +455,13 @@ class StreamlitCallback(tf.keras.callbacks.Callback):
         self.progress_bar.progress(pct)
         self.status_text.text(f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
 
-# --- DASHBOARD UTAMA ---
+
+# ==========================================
+# 8. DASHBOARD UTAMA & CORE PROSESSING
+# ==========================================
 with st.container():
     st.markdown('<div class="card-tool">', unsafe_allow_html=True)
-    st.markdown('<h2 class="section-title" style="color: #002561; border-bottom: 2px solid #005eb8;">Operational Dashboard (Powerplant Engineer)</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Operational Dashboard: {nav_engine}</h2>', unsafe_allow_html=True)
 
     col_up, col_opt = st.columns([3, 1])
     with col_up:
@@ -479,7 +470,7 @@ with st.container():
         st.markdown("<br>", unsafe_allow_html=True)
         force_retrain = st.checkbox("Force Retrain AI Model", value=False, help="Abaikan memori model yang tersimpan dan latih AI dari nol.")
 
-    if st.button("Run Analysis", key="btn_run"):
+    if st.button("🚀 Run Analysis", key="btn_run"):
         if uploaded_file is not None:
             reset_seeds(42)
             st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
@@ -994,7 +985,7 @@ with st.container():
 
 
 # ==========================================
-# --- 6. TAMPILAN HASIL OPERASIONAL ---
+# --- 8. TAMPILAN HASIL OPERASIONAL ---
 # ==========================================
 if st.session_state.get('results') is not None:
     results      = st.session_state['results']
@@ -1111,50 +1102,63 @@ if st.session_state.get('results') is not None:
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- FORM SETTINGS (SIGNATURE, IMAGE & NOTES) ---
-        st.markdown("<div style='background-color:#f8f9fa; padding:15px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
-        st.markdown("<span style='color:#002561; font-weight:bold; font-size:13px; text-transform:uppercase;'>📝 Report Details & Adjustments</span>", unsafe_allow_html=True)
+        date_info = res['Dates Info']
+        st.markdown(f"""
+        <div class='info-box'>
+          <b style='color:#002561; font-size:14px;'>Parameter Description (30-Day Shift)</b><hr style="margin-top:5px; margin-bottom:10px;">
+          <div class='info-row'><span class='info-label'>Reference Baseline Date:</span><span class='info-val'>{date_info['Ref Date']}</span></div>
+          <div class='info-row'><span class='info-label'>Observation Date:</span><span class='info-val'>{date_info['Obs Date']}</span></div>
+          <div class='info-row' style='border-bottom:none;'><span class='info-label'>Last Flight Date:</span><span class='info-val'>Cruise: {date_info['Last Flight CR']} <br> Takeoff: {date_info['Last Flight TO']}</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- Pindahkan Area Report Details ke Luar Kolom agar Full-Width ---
+    st.markdown("<br><hr>", unsafe_allow_html=True)
+    st.markdown("<div style='background-color:#f8f9fa; padding:25px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
+    st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments</span><br><br>", unsafe_allow_html=True)
+    
+    with st.form(key="signature_form"):
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1: input_name = st.text_input("Name", value=user_display_name)
+        with col_s2: input_phone = st.text_input("Phone Number", value="+6281904706205")
+        with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
         
-        with st.form(key="signature_form"):
-            col_s1, col_s2, col_s3 = st.columns(3)
-            with col_s1: input_name = st.text_input("Name", value=user_display_name)
-            with col_s2: input_phone = st.text_input("Phone Number", value="+6281904706205")
-            with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
-            
-            st.markdown("---")
-            # Fitur Upload Gambar (Mendukung banyak file dan format)
-            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
-            
-            st.markdown("---")
-            # Fitur Notes (Aktif jika dicentang)
-            use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
-            custom_notes = st.text_area("Tulis catatan Engineer di sini:", disabled=not use_notes)
-            
-            submit_signature = st.form_submit_button("🔄 Apply All Data to PDF")
-            
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("---")
+        # Fitur Upload Gambar (Mendukung banyak file dan format)
+        uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
+        
+        st.markdown("---")
+        # Fitur Notes (Aktif jika dicentang)
+        use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
+        custom_notes = st.text_area("Tulis catatan Engineer di sini:", disabled=not use_notes)
+        
+        submit_signature = st.form_submit_button("🔄 Apply All Data to PDF")
+        
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        # Logika iterasi gambar & proteksi maksimal 10MB per file
-        img_bytes_list = []
-        if uploaded_imgs:
-            for img_file in uploaded_imgs:
-                if img_file.size > 10 * 1024 * 1024:
-                    st.error(f"⚠️ Gambar {img_file.name} melebihi 10 MB. Silakan kompres gambar tersebut.")
-                else:
-                    img_bytes_list.append(img_file.getvalue())
+    # Logika iterasi gambar & proteksi maksimal 10MB per file
+    img_bytes_list = []
+    if uploaded_imgs:
+        for img_file in uploaded_imgs:
+            if img_file.size > 10 * 1024 * 1024:
+                st.error(f"⚠️ Gambar {img_file.name} melebihi 10 MB. Silakan kompres gambar tersebut.")
+            else:
+                img_bytes_list.append(img_file.getvalue())
 
-        notes_text = custom_notes if use_notes else None
+    notes_text = custom_notes if use_notes else None
 
-        # Memanggil PDF dengan semua data baru (menggunakan List bytes gambar)
-        pdf_bytes = generate_cnr_pdf(
-            res, 
-            user_name=input_name, 
-            user_phone=input_phone, 
-            user_email=input_email,
-            images_bytes_list=img_bytes_list,
-            notes=notes_text
-        )
+    # Memanggil PDF dengan semua data baru (menggunakan List bytes gambar)
+    pdf_bytes = generate_cnr_pdf(
+        res, 
+        user_name=input_name, 
+        user_phone=input_phone, 
+        user_email=input_email,
+        images_bytes_list=img_bytes_list,
+        notes=notes_text
+    )
 
+    _, col_btn, _ = st.columns([1, 2, 1])
+    with col_btn:
         st.download_button(
             label="📄 Download Pre-Info Report (PDF)",
             data=pdf_bytes,
@@ -1163,107 +1167,100 @@ if st.session_state.get('results') is not None:
             use_container_width=True
         )
 
-        st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
-        date_info = res['Dates Info']
-        st.markdown(f"""
-        <div class='info-box'>
-          <div class='info-row'><span class='info-label'>Reference Baseline Date:</span><span class='info-val'>{date_info['Ref Date']}</span></div>
-          <div class='info-row'><span class='info-label'>Observation Date:</span><span class='info-val'>{date_info['Obs Date']}</span></div>
-          <div class='info-row' style='border-bottom:none;'><span class='info-label'>Last Flight Date:</span><span class='info-val'>Cruise: {date_info['Last Flight CR']} <br> Takeoff: {date_info['Last Flight TO']}</span></div>
-        </div>
-        """, unsafe_allow_html=True)
 
 # ==========================================
-# --- 7. TAMPILAN HASIL AKADEMIK (GLOBAL) ---
+# --- 9. TAMPILAN HASIL AKADEMIK (GLOBAL) ---
 # ==========================================
 if st.session_state.get('thesis_metrics') is not None:
     st.markdown("<br><br><hr style='border: 2px solid #005eb8;'>", unsafe_allow_html=True)
-    st.markdown('<div class="thesis-section">', unsafe_allow_html=True)
-    st.markdown("<h2 style='color:#002561;margin-top:0;'>🎓 Academic Evaluation (Global Fleet Metrics)</h2>", unsafe_allow_html=True)
-    st.markdown("*Metrik di bawah ini dihitung menggunakan **Validation Set** dari **seluruh engine** yang diuji secara global.*")
+    
+    with st.expander("🎓 Academic Evaluation (Global Fleet Metrics)", expanded=False):
+        st.markdown('<div class="thesis-section">', unsafe_allow_html=True)
+        st.markdown("<h2 style='color:#002561;margin-top:0;'>Global Fleet Metrics</h2>", unsafe_allow_html=True)
+        st.markdown("*Metrik di bawah ini dihitung menggunakan **Validation Set** dari **seluruh engine** yang diuji secara global.*")
 
-    tm = st.session_state['thesis_metrics']
-    col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        st.markdown("### 1. Global Regression Metrics")
-        rm1, rm2, rm3 = st.columns(3)
-        rm1.metric("RMSE",  f"{tm['rmse']:.4f}",  delta_color="off")
-        rm2.metric("MAE",   f"{tm['mae']:.4f}",   delta_color="off")
-        rm3.metric("MAPE",  f"{tm['mape']:.2f}%", delta_color="off")
+        tm = st.session_state['thesis_metrics']
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            st.markdown("### 1. Global Regression Metrics")
+            rm1, rm2, rm3 = st.columns(3)
+            rm1.metric("RMSE",  f"{tm['rmse']:.4f}",  delta_color="off")
+            rm2.metric("MAE",   f"{tm['mae']:.4f}",   delta_color="off")
+            rm3.metric("MAPE",  f"{tm['mape']:.2f}%", delta_color="off")
+            st.markdown("<br>", unsafe_allow_html=True)
+            rm4, rm5, _ = st.columns(3)
+            rm4.metric("% Error (Avg)",  f"{tm['err_pct']:.2f}%",   delta_color="off")
+            rm5.metric("Training Time",  f"{tm['train_time']:.2f} min", delta_color="off")
+
+        with col_t2:
+            st.markdown("### 2. Global Classification Metrics (Thresh = 10 PSI)")
+            cm1, cm2, cm3, cm4 = st.columns(4)
+            cm1.metric("Overall Accuracy", f"{tm['acc']*100:.2f}%")
+            cm2.metric("Precision",        f"{tm['prec']*100:.2f}%")
+            cm3.metric("Recall",           f"{tm['rec']*100:.2f}%")
+            cm4.metric("F1-Score",         f"{tm['f1']*100:.2f}%")
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.metric("AUC (Area Under Curve)", f"{tm['auc']:.4f}")
+
+        st.markdown("---")
+        st.markdown("### 3. Global Evaluation Plots")
+        col_p1, col_p2, col_p3 = st.columns(3)
+        with col_p1:
+            df_scatter = pd.DataFrame({'Actual': tm['y_val_real'], 'Predicted': tm['y_pred_real']})
+            if len(df_scatter) > 1000: df_scatter = df_scatter.sample(1000, random_state=42)
+            fig_scatter = px.scatter(df_scatter, x='Actual', y='Predicted', opacity=0.5, title="Actual vs Predicted (Global)")
+            mn, mx = min(df_scatter['Actual'].min(), df_scatter['Predicted'].min()), max(df_scatter['Actual'].max(), df_scatter['Predicted'].max())
+            fig_scatter.add_trace(go.Scatter(x=[mn, mx], y=[mn, mx], mode='lines', name='Ideal Fit', line=dict(color='red', dash='dash')))
+            fig_scatter.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+            st.plotly_chart(fig_scatter, use_container_width=True, key="scatter_g")
+
+        with col_p2:
+            fig_cm = px.imshow(tm['cm'], text_auto=True, color_continuous_scale='Blues', x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title="Confusion Matrix (Global)")
+            fig_cm.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+            st.plotly_chart(fig_cm, use_container_width=True, key="cm_g")
+
+        with col_p3:
+            if tm['fpr'] is not None:
+                fig_roc = go.Figure()
+                fig_roc.add_trace(go.Scatter(x=tm['fpr'], y=tm['tpr'], mode='lines', name=f"ROC (AUC={tm['auc']:.2f})", line=dict(color='darkorange', width=2)))
+                fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(color='navy', width=2, dash='dash')))
+                fig_roc.update_layout(title="ROC Curve (Global)", margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_roc, use_container_width=True, key="roc_g")
+            else: st.info("⚠️ Data validasi tidak mengandung tekanan > 10 PSI. ROC Curve tidak dapat dibuat.")
+
         st.markdown("<br>", unsafe_allow_html=True)
-        rm4, rm5, _ = st.columns(3)
-        rm4.metric("% Error (Avg)",  f"{tm['err_pct']:.2f}%",   delta_color="off")
-        rm5.metric("Training Time",  f"{tm['train_time']:.2f} min", delta_color="off")
+        col_p4, col_p5, col_p6 = st.columns(3)
+        with col_p4:
+            if tm['history'] and 'loss' in tm['history'] and 'val_loss' in tm['history']:
+                epochs = list(range(1, len(tm['history']['loss']) + 1))
+                fig_lc = go.Figure()
+                fig_lc.add_trace(go.Scatter(x=epochs, y=tm['history']['loss'],     mode='lines', name='Train Loss', line=dict(color='blue')))
+                fig_lc.add_trace(go.Scatter(x=epochs, y=tm['history']['val_loss'], mode='lines', name='Val Loss',   line=dict(color='red')))
+                fig_lc.update_layout(title="Learning Curve (Global Model)", margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_lc, use_container_width=True, key="lc_g")
 
-    with col_t2:
-        st.markdown("### 2. Global Classification Metrics (Thresh = 10 PSI)")
-        cm1, cm2, cm3, cm4 = st.columns(4)
-        cm1.metric("Overall Accuracy", f"{tm['acc']*100:.2f}%")
-        cm2.metric("Precision",        f"{tm['prec']*100:.2f}%")
-        cm3.metric("Recall",           f"{tm['rec']*100:.2f}%")
-        cm4.metric("F1-Score",         f"{tm['f1']*100:.2f}%")
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.metric("AUC (Area Under Curve)", f"{tm['auc']:.4f}")
+        with col_p5:
+            fig_fi = px.bar(x=list(tm['importances'].values()), y=list(tm['importances'].keys()), orientation='h', title="Feature Importance (Global)")
+            fig_fi.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+            st.plotly_chart(fig_fi, use_container_width=True, key="fi_g")
 
-    st.markdown("---")
-    st.markdown("### 3. Global Evaluation Plots")
-    col_p1, col_p2, col_p3 = st.columns(3)
-    with col_p1:
-        df_scatter = pd.DataFrame({'Actual': tm['y_val_real'], 'Predicted': tm['y_pred_real']})
-        if len(df_scatter) > 1000: df_scatter = df_scatter.sample(1000, random_state=42)
-        fig_scatter = px.scatter(df_scatter, x='Actual', y='Predicted', opacity=0.5, title="Actual vs Predicted (Global)")
-        mn, mx = min(df_scatter['Actual'].min(), df_scatter['Predicted'].min()), max(df_scatter['Actual'].max(), df_scatter['Predicted'].max())
-        fig_scatter.add_trace(go.Scatter(x=[mn, mx], y=[mn, mx], mode='lines', name='Ideal Fit', line=dict(color='red', dash='dash')))
-        fig_scatter.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-        st.plotly_chart(fig_scatter, use_container_width=True, key="scatter_g")
+        with col_p6:
+            residuals = tm['y_val_real'] - tm['y_pred_real']
+            fig_res   = px.histogram(x=residuals, nbins=50, title="Error Distribution (Global)", color_discrete_sequence=['#28a745'])
+            fig_res.add_vline(x=0, line_width=2, line_dash="dash", line_color="red")
+            fig_res.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+            st.plotly_chart(fig_res, use_container_width=True, key="res_g")
 
-    with col_p2:
-        fig_cm = px.imshow(tm['cm'], text_auto=True, color_continuous_scale='Blues', x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title="Confusion Matrix (Global)")
-        fig_cm.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-        st.plotly_chart(fig_cm, use_container_width=True, key="cm_g")
-
-    with col_p3:
-        if tm['fpr'] is not None:
-            fig_roc = go.Figure()
-            fig_roc.add_trace(go.Scatter(x=tm['fpr'], y=tm['tpr'], mode='lines', name=f"ROC (AUC={tm['auc']:.2f})", line=dict(color='darkorange', width=2)))
-            fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(color='navy', width=2, dash='dash')))
-            fig_roc.update_layout(title="ROC Curve (Global)", margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_roc, use_container_width=True, key="roc_g")
-        else: st.info("⚠️ Data validasi tidak mengandung tekanan > 10 PSI. ROC Curve tidak dapat dibuat.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    col_p4, col_p5, col_p6 = st.columns(3)
-    with col_p4:
-        if tm['history'] and 'loss' in tm['history'] and 'val_loss' in tm['history']:
-            epochs = list(range(1, len(tm['history']['loss']) + 1))
-            fig_lc = go.Figure()
-            fig_lc.add_trace(go.Scatter(x=epochs, y=tm['history']['loss'],     mode='lines', name='Train Loss', line=dict(color='blue')))
-            fig_lc.add_trace(go.Scatter(x=epochs, y=tm['history']['val_loss'], mode='lines', name='Val Loss',   line=dict(color='red')))
-            fig_lc.update_layout(title="Learning Curve (Global Model)", margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_lc, use_container_width=True, key="lc_g")
-
-    with col_p5:
-        fig_fi = px.bar(x=list(tm['importances'].values()), y=list(tm['importances'].keys()), orientation='h', title="Feature Importance (Global)")
-        fig_fi.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-        st.plotly_chart(fig_fi, use_container_width=True, key="fi_g")
-
-    with col_p6:
-        residuals = tm['y_val_real'] - tm['y_pred_real']
-        fig_res   = px.histogram(x=residuals, nbins=50, title="Error Distribution (Global)", color_discrete_sequence=['#28a745'])
-        fig_res.add_vline(x=0, line_width=2, line_dash="dash", line_color="red")
-        fig_res.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-        st.plotly_chart(fig_res, use_container_width=True, key="res_g")
-
-    if len(tm['cv_scores']) == 4:
-        folds  = ['Chron Chunk 1', 'Chron Chunk 2', 'Chron Chunk 3', 'Chron Chunk 4']
-        fig_cv = px.bar(x=folds, y=tm['cv_scores'], text=[f"{v:.3f}" for v in tm['cv_scores']], title="Time-Series Validation Stability (Global RMSE)")
-        fig_cv.update_traces(textposition='outside', marker_color='#17a2b8')
-        fig_cv.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-        st.plotly_chart(fig_cv, use_container_width=True, key="cv_g")
-    st.markdown('</div>', unsafe_allow_html=True)
+        if len(tm['cv_scores']) == 4:
+            folds  = ['Chron Chunk 1', 'Chron Chunk 2', 'Chron Chunk 3', 'Chron Chunk 4']
+            fig_cv = px.bar(x=folds, y=tm['cv_scores'], text=[f"{v:.3f}" for v in tm['cv_scores']], title="Time-Series Validation Stability (Global RMSE)")
+            fig_cv.update_traces(textposition='outside', marker_color='#17a2b8')
+            fig_cv.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+            st.plotly_chart(fig_cv, use_container_width=True, key="cv_g")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# --- 8. ENGINE-SPECIFIC ACADEMIC EVALUATION ---
+# --- 10. ENGINE-SPECIFIC ACADEMIC EVALUATION ---
 # ==========================================
 if st.session_state.get('results') is not None:
     results_ref       = st.session_state['results']
@@ -1273,78 +1270,81 @@ if st.session_state.get('results') is not None:
 
     if res_eng and res_eng.get('Thesis'):
         tme = res_eng['Thesis']
-        st.markdown('<div class="engine-thesis-section">', unsafe_allow_html=True)
-        st.markdown(f"<h2 style='color:#28a745;margin-top:0;'>🔍 Engine-Specific Evaluation (ESN: {selected_esn_temp})</h2>", unsafe_allow_html=True)
-        st.markdown(f"*Metrik dan plot di bawah ini difilter khusus untuk validasi data dari mesin **{selected_esn_temp}** saja.*")
+        
+        with st.expander(f"🔍 Engine-Specific Evaluation (ESN: {selected_esn_temp})", expanded=False):
+            st.markdown('<div class="engine-thesis-section">', unsafe_allow_html=True)
+            st.markdown(f"<h2 style='color:#28a745;margin-top:0;'>Engine-Specific Evaluation</h2>", unsafe_allow_html=True)
+            st.markdown(f"*Metrik dan plot di bawah ini difilter khusus untuk validasi data dari mesin **{selected_esn_temp}** saja.*")
 
-        col_e1, col_e2 = st.columns(2)
-        with col_e1:
-            st.markdown("### 1. Specific Regression Metrics")
-            em1, em2, em3 = st.columns(3)
-            em1.metric("RMSE", f"{tme['rmse']:.4f}")
-            em2.metric("MAE",  f"{tme['mae']:.4f}")
-            em3.metric("MAPE", f"{tme['mape']:.2f}%")
+            col_e1, col_e2 = st.columns(2)
+            with col_e1:
+                st.markdown("### 1. Specific Regression Metrics")
+                em1, em2, em3 = st.columns(3)
+                em1.metric("RMSE", f"{tme['rmse']:.4f}")
+                em2.metric("MAE",  f"{tme['mae']:.4f}")
+                em3.metric("MAPE", f"{tme['mape']:.2f}%")
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.metric("% Error (Avg)", f"{tme['err_pct']:.2f}%")
+
+            with col_e2:
+                st.markdown("### 2. Specific Classification Metrics")
+                em4, em5, em6, em7 = st.columns(4)
+                em4.metric("Accuracy",  f"{tme['acc']*100:.2f}%")
+                em5.metric("Precision", f"{tme['prec']*100:.2f}%")
+                em6.metric("Recall",    f"{tme['rec']*100:.2f}%")
+                em7.metric("F1-Score",  f"{tme['f1']*100:.2f}%")
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.metric("AUC", f"{tme['auc']:.4f}" if not pd.isna(tme['auc']) else "N/A (No >10 PSI data)")
+
+            st.markdown("---")
+            st.markdown("### 3. Specific Evaluation Plots")
+            col_ep1, col_ep2, col_ep3 = st.columns(3)
+
+            with col_ep1:
+                df_e_sc = pd.DataFrame({'Actual': tme['y_val_real'], 'Predicted': tme['y_pred_real']})
+                if len(df_e_sc) > 1000: df_e_sc = df_e_sc.sample(1000, random_state=42)
+                fig_e_sc = px.scatter(df_e_sc, x='Actual', y='Predicted', opacity=0.6, title=f"Actual vs Predicted ({selected_esn_temp})")
+                mn_e = min(df_e_sc['Actual'].min(), df_e_sc['Predicted'].min())
+                mx_e = max(df_e_sc['Actual'].max(), df_e_sc['Predicted'].max())
+                fig_e_sc.add_trace(go.Scatter(x=[mn_e, mx_e], y=[mn_e, mx_e], mode='lines', name='Ideal', line=dict(color='red', dash='dash')))
+                fig_e_sc.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_e_sc, use_container_width=True, key=f"scatter_e_{selected_esn_temp}")
+
+            with col_ep2:
+                fig_e_cm = px.imshow(tme['cm'], text_auto=True, color_continuous_scale='Greens', x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title=f"Confusion Matrix ({selected_esn_temp})")
+                fig_e_cm.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_e_cm, use_container_width=True, key=f"cm_e_{selected_esn_temp}")
+
+            with col_ep3:
+                if tme['fpr'] is not None:
+                    fig_e_roc = go.Figure()
+                    fig_e_roc.add_trace(go.Scatter(x=tme['fpr'], y=tme['tpr'], mode='lines', name=f"AUC = {tme['auc']:.2f}", line=dict(color='green', width=2)))
+                    fig_e_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(color='gray', width=2, dash='dash')))
+                    fig_e_roc.update_layout(title=f"ROC Curve ({selected_esn_temp})", margin=dict(l=20, r=20, t=40, b=20), height=300)
+                    st.plotly_chart(fig_e_roc, use_container_width=True, key=f"roc_e_{selected_esn_temp}")
+                else: st.info("⚠️ Data validasi mesin ini belum pernah melampaui 10 PSI. ROC Curve tidak dapat dihitung.")
+
             st.markdown("<br>", unsafe_allow_html=True)
-            st.metric("% Error (Avg)", f"{tme['err_pct']:.2f}%")
+            col_ep4, col_ep5, col_ep6 = st.columns(3)
+            with col_ep4: st.info("ℹ️ **Model Learning Curve** tidak ditampilkan secara individual karena model AI dilatih secara terpusat (Global Fleet).")
 
-        with col_e2:
-            st.markdown("### 2. Specific Classification Metrics")
-            em4, em5, em6, em7 = st.columns(4)
-            em4.metric("Accuracy",  f"{tme['acc']*100:.2f}%")
-            em5.metric("Precision", f"{tme['prec']*100:.2f}%")
-            em6.metric("Recall",    f"{tme['rec']*100:.2f}%")
-            em7.metric("F1-Score",  f"{tme['f1']*100:.2f}%")
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.metric("AUC", f"{tme['auc']:.4f}" if not pd.isna(tme['auc']) else "N/A (No >10 PSI data)")
+            with col_ep5:
+                fig_e_fi = px.bar(x=list(tme['importances'].values()), y=list(tme['importances'].keys()), orientation='h', title=f"Feature Importance ({selected_esn_temp})", color_discrete_sequence=['#28a745'])
+                fig_e_fi.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_e_fi, use_container_width=True, key=f"fi_e_{selected_esn_temp}")
 
-        st.markdown("---")
-        st.markdown("### 3. Specific Evaluation Plots")
-        col_ep1, col_ep2, col_ep3 = st.columns(3)
+            with col_ep6:
+                e_res   = tme['y_val_real'] - tme['y_pred_real']
+                fig_e_r = px.histogram(x=e_res, nbins=30, title=f"Error Distribution ({selected_esn_temp})", color_discrete_sequence=['#17a2b8'])
+                fig_e_r.add_vline(x=0, line_width=2, line_dash="dash", line_color="red")
+                fig_e_r.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_e_r, use_container_width=True, key=f"res_e_{selected_esn_temp}")
 
-        with col_ep1:
-            df_e_sc = pd.DataFrame({'Actual': tme['y_val_real'], 'Predicted': tme['y_pred_real']})
-            if len(df_e_sc) > 1000: df_e_sc = df_e_sc.sample(1000, random_state=42)
-            fig_e_sc = px.scatter(df_e_sc, x='Actual', y='Predicted', opacity=0.6, title=f"Actual vs Predicted ({selected_esn_temp})")
-            mn_e = min(df_e_sc['Actual'].min(), df_e_sc['Predicted'].min())
-            mx_e = max(df_e_sc['Actual'].max(), df_e_sc['Predicted'].max())
-            fig_e_sc.add_trace(go.Scatter(x=[mn_e, mx_e], y=[mn_e, mx_e], mode='lines', name='Ideal', line=dict(color='red', dash='dash')))
-            fig_e_sc.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_e_sc, use_container_width=True, key=f"scatter_e_{selected_esn_temp}")
-
-        with col_ep2:
-            fig_e_cm = px.imshow(tme['cm'], text_auto=True, color_continuous_scale='Greens', x=['Normal', 'Degraded'], y=['Normal', 'Degraded'], title=f"Confusion Matrix ({selected_esn_temp})")
-            fig_e_cm.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_e_cm, use_container_width=True, key=f"cm_e_{selected_esn_temp}")
-
-        with col_ep3:
-            if tme['fpr'] is not None:
-                fig_e_roc = go.Figure()
-                fig_e_roc.add_trace(go.Scatter(x=tme['fpr'], y=tme['tpr'], mode='lines', name=f"AUC = {tme['auc']:.2f}", line=dict(color='green', width=2)))
-                fig_e_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Random', line=dict(color='gray', width=2, dash='dash')))
-                fig_e_roc.update_layout(title=f"ROC Curve ({selected_esn_temp})", margin=dict(l=20, r=20, t=40, b=20), height=300)
-                st.plotly_chart(fig_e_roc, use_container_width=True, key=f"roc_e_{selected_esn_temp}")
-            else: st.info("⚠️ Data validasi mesin ini belum pernah melampaui 10 PSI. ROC Curve tidak dapat dihitung.")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_ep4, col_ep5, col_ep6 = st.columns(3)
-        with col_ep4: st.info("ℹ️ **Model Learning Curve** tidak ditampilkan secara individual karena model AI dilatih secara terpusat (Global Fleet).")
-
-        with col_ep5:
-            fig_e_fi = px.bar(x=list(tme['importances'].values()), y=list(tme['importances'].keys()), orientation='h', title=f"Feature Importance ({selected_esn_temp})", color_discrete_sequence=['#28a745'])
-            fig_e_fi.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_e_fi, use_container_width=True, key=f"fi_e_{selected_esn_temp}")
-
-        with col_ep6:
-            e_res   = tme['y_val_real'] - tme['y_pred_real']
-            fig_e_r = px.histogram(x=e_res, nbins=30, title=f"Error Distribution ({selected_esn_temp})", color_discrete_sequence=['#17a2b8'])
-            fig_e_r.add_vline(x=0, line_width=2, line_dash="dash", line_color="red")
-            fig_e_r.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_e_r, use_container_width=True, key=f"res_e_{selected_esn_temp}")
-
-        if len(tme['cv_scores']) == 4:
-            fig_e_cv = px.bar(x=['Chunk 1', 'Chunk 2', 'Chunk 3', 'Chunk 4'], y=tme['cv_scores'], text=[f"{v:.3f}" for v in tme['cv_scores']], title=f"Validation Stability over Time ({selected_esn_temp})")
-            fig_e_cv.update_traces(textposition='outside', marker_color='#6f42c1')
-            fig_e_cv.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
-            st.plotly_chart(fig_e_cv, use_container_width=True, key=f"cv_e_{selected_esn_temp}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    else: st.warning("⚠️ Data akademis untuk mesin ini tidak cukup untuk di-generate (Minimal butuh 65 data points penerbangan pada porsi Validation Set).")
+            if len(tme['cv_scores']) == 4:
+                fig_e_cv = px.bar(x=['Chunk 1', 'Chunk 2', 'Chunk 3', 'Chunk 4'], y=tme['cv_scores'], text=[f"{v:.3f}" for v in tme['cv_scores']], title=f"Validation Stability over Time ({selected_esn_temp})")
+                fig_e_cv.update_traces(textposition='outside', marker_color='#6f42c1')
+                fig_e_cv.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300)
+                st.plotly_chart(fig_e_cv, use_container_width=True, key=f"cv_e_{selected_esn_temp}")
+            st.markdown('</div>', unsafe_allow_html=True)
+    else: 
+        st.warning("⚠️ Data akademis untuk mesin ini tidak cukup untuk di-generate (Minimal butuh 65 data points penerbangan pada porsi Validation Set).")
