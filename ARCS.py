@@ -175,7 +175,7 @@ class PDFReport(FPDF):
         self.set_y(-15)
         self.set_font("Courier", 'I', 7)
         self.set_text_color(153, 153, 153)
-        self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
+        self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}z", align='L')
         self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
 
@@ -348,7 +348,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
         
     pdf.set_font("Courier", 'B', 10)
     pdf.cell(0, 5, "DISCLAIMER:", ln=True)
-    pdf.set_font("Courier", 'I', 9)
+    pdf.set_font("Courier", 'IB', 9)
     pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.")
     pdf.ln(5)
     
@@ -383,7 +383,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.ln(5)
     pdf.set_text_color(150, 150, 150)
     pdf.set_font("Courier", 'I', 7)
-    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies."
+    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies. Please do not distribute."
     pdf.multi_cell(0, 4, disclaimer_text, align='L')
     pdf.set_text_color(0, 0, 0) 
 
