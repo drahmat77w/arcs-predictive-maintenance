@@ -383,7 +383,7 @@ def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user
     pdf.ln(5)
     pdf.set_text_color(150, 150, 150)
     pdf.set_font("Courier", 'I', 7)
-    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies. Please do not distribute."
+    disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and /or their affiliated companies. Please do not distribute without permission."
     pdf.multi_cell(0, 4, disclaimer_text, align='L')
     pdf.set_text_color(0, 0, 0) 
 
