@@ -76,7 +76,6 @@ def reset_seeds(seed=42):
     tf.random.set_seed(seed)
     tf.keras.backend.clear_session()
 
-SUMMARY_FILE = "latest_summary.json"
 
 # ==========================================
 # 3. LOGIN DASHBOARD UI
@@ -134,10 +133,13 @@ if not st.session_state['logged_in']:
 st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
-# MENGEMBALIKAN "Home" KE DALAM DAFTAR DAN MENJADIKANNYA URUTAN PERTAMA
+# File penyimpan data spesifik berdasarkan engine yang dipilih
+SUMMARY_FILE = f"latest_summary_{nav_engine}.json"
+
 if nav_engine == "GE90-115B":
     nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
 else:
+    # Memastikan halaman Home tetap ada untuk CFM56-5B
     nav_module = st.sidebar.radio("Module", ["Home", "Engine Health Analytics"])
 
 st.sidebar.markdown("---")
@@ -191,6 +193,19 @@ st.markdown(f"""
         .info-val {{ color: #000; font-weight: 500; }}
         .streamlit-expanderHeader {{ font-weight: bold; color: #002561; background-color: #e9ecef; border-radius: 5px; }}
         .thesis-section {{ padding: 10px; }}
+        
+        /* CSS Khusus untuk Top 3 Alert Box */
+        .top3-box {{
+            background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; border-radius: 5px; margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }}
+        .top3-header {{ color: #856404; margin: 0 0 10px 0; font-size: 18px; font-weight: bold; }}
+        .top3-item {{ margin-bottom: 15px; border-bottom: 1px dashed #e5c77b; padding-bottom: 10px; }}
+        .top3-item:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
+        .top3-esn {{ font-size: 16px; font-weight: 800; color: #002561; }}
+        .top3-reg {{ font-size: 14px; color: #555; }}
+        .top3-psi {{ font-size: 18px; font-weight: bold; color: #dc3545; float: right; }}
+        .top3-dates {{ font-size: 13px; color: #333; margin-top: 5px; display: flex; justify-content: space-between; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -226,10 +241,10 @@ if nav_module == "Engine Health Analytics":
     st.markdown(f"<h4 style='text-align: center; color: #888;'>The {nav_module} module for {nav_engine} is currently under development.</h4>", unsafe_allow_html=True)
     st.stop()
 
-# ----------------- HALAMAN HOME (PERSISTENT DATA) -----------------
+# ----------------- HALAMAN HOME (PERSISTENT DATA - TOP 3 ONLY) -----------------
 elif nav_module == "Home":
     st.markdown('<div class="card-tool">', unsafe_allow_html=True)
-    st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Fleet Health Overview: {nav_engine}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Executive Overview: {nav_engine}</h2>', unsafe_allow_html=True)
     
     if os.path.exists(SUMMARY_FILE):
         try:
@@ -237,36 +252,53 @@ elif nav_module == "Home":
                 saved_data = json.load(f)
                 
             run_time = saved_data.get("run_time", "-")
-            engines_list = saved_data.get("engines", [])
-            results = saved_data.get("results", [])
+            results  = saved_data.get("results", [])
             
             if len(results) > 0:
-                df_res = pd.DataFrame(results)
-                st.markdown(f"**Last Data Update:** {run_time} (UTC)")
-
-                col1, col2, col3, col4 = st.columns(4)
-                crit   = len(df_res[df_res['Status'].str.contains('CRITICAL')])
-                warn   = len(df_res[df_res['Status'].str.contains('WARNING')])
-                watch  = len(df_res[df_res['Status'].str.contains('ON WATCH')])
-                parked = len(df_res[df_res['Status'] == 'PARKED'])
-
-                col1.metric("Total Engines",       len(engines_list))
-                col2.metric("Critical",            crit,  delta="-Urgent",  delta_color="inverse")
-                col3.metric("Warning / Watch",     warn + watch, delta="Monitor", delta_color="off")
-                col4.metric("Healthy / Parked",    len(engines_list) - crit - warn - watch, delta=f"{parked} Parked")
-
-                st.markdown("---")
-                st.subheader("📋 Executive Fleet Summary")
-                df_res.index = np.arange(1, len(df_res) + 1)
-                st.dataframe(df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']].style.map(color_status, subset=['Status']), use_container_width=True)
+                st.markdown(f"**Last Sync:** {run_time} (UTC)")
                 
-                st.info("💡 Untuk melihat detail kurva probabilitas dan mengekspor dokumen MSAO (PDF), silakan pindah ke menu **Fuel Filter Replacement Forecasting** di Sidebar.")
+                # Filter hanya yang berstatus rentan (Bukan Normal/Parked/Insufficient)
+                vulnerable_status = ["CRITICAL", "WARNING", "ON WATCH"]
+                filtered_res = [r for r in results if any(s in r['Status'] for s in vulnerable_status)]
+                
+                # Mengurutkan berdasarkan sisa Siklus (Cycles) terkecil. 
+                # 0 atau angka kecil berarti sangat mendesak.
+                sorted_res = sorted(filtered_res, key=lambda x: x['Cycles'])
+                
+                top_3 = sorted_res[:3]
+
+                if len(top_3) > 0:
+                    st.markdown("<br><div class='top3-box'>", unsafe_allow_html=True)
+                    st.markdown("<h3 class='top3-header'>🚨 Top Priority Engines (Nearest to Maintenance)</h3>", unsafe_allow_html=True)
+                    
+                    for item in top_3:
+                        esn = item['ESN']
+                        reg = item['Reg']
+                        psi = item['PSI']
+                        p_date = item['Planner Date']
+                        d_date = item['Date']
+                        
+                        st.markdown(f"""
+                        <div class='top3-item'>
+                            <span class='top3-esn'>ESN: {esn}</span> <span class='top3-reg'>({reg})</span>
+                            <span class='top3-psi'>{psi} PSID</span>
+                            <div class='top3-dates'>
+                                <span><b>Planner Action Date:</b> <span style='color:#d39e00;'>{p_date}</span></span>
+                                <span><b>Est. Due Date:</b> <span style='color:#dc3545;'>{d_date}</span></span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.success("✅ Seluruh armada dalam kondisi optimal. Tidak ada peringatan prioritas saat ini.")
+
+                st.info(f"💡 Untuk melihat analisis menyeluruh, *Fleet Health Summary*, dan mencetak MSAO, silakan masuk ke menu modul di Sidebar.")
             else:
                 st.warning("Data arsip kosong.")
         except Exception as e:
             st.error(f"Gagal membaca arsip data: {e}")
     else:
-        st.info("ℹ️ Belum ada data analisis yang tersimpan. Silakan masuk ke menu **Fuel Filter Replacement Forecasting** untuk mengunggah dan melatih data sensor terbaru.")
+        st.info(f"ℹ️ Belum ada data analisis yang tersimpan untuk armada {nav_engine}. Silakan jalankan analisis di modul terkait.")
         
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1026,7 +1058,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                 st.session_state['results']  = forecast_report
                 st.session_state['engines']  = engines
                 
-                # --- AUTO-SAVE JSON UNTUK HOME PAGE ---
+                # --- AUTO-SAVE JSON UNTUK HOME PAGE SPESIFIK ENGINE ---
                 try:
                     summary_to_save = {
                         "run_time": st.session_state['run_time'],
@@ -1057,8 +1089,28 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         results      = st.session_state['results']
         engines_list = st.session_state.get('engines', [])
         run_time     = st.session_state.get('run_time', '-')
+        df_res       = pd.DataFrame(results)
 
         st.markdown(f"**Session Analysis performed on:** {run_time} (UTC)")
+        
+        # --- FLEET HEALTH OVERVIEW (DIKEMBALIKAN KE SINI) ---
+        col1, col2, col3, col4 = st.columns(4)
+        crit   = len(df_res[df_res['Status'].str.contains('CRITICAL')])
+        warn   = len(df_res[df_res['Status'].str.contains('WARNING')])
+        watch  = len(df_res[df_res['Status'].str.contains('ON WATCH')])
+        parked = len(df_res[df_res['Status'] == 'PARKED'])
+
+        col1.metric("Total Engines",       len(engines_list))
+        col2.metric("Critical",            crit,  delta="-Urgent",  delta_color="inverse")
+        col3.metric("Warning / Watch",     warn + watch, delta="Monitor", delta_color="off")
+        col4.metric("Healthy / Parked",    len(engines_list) - crit - warn - watch, delta=f"{parked} Parked")
+
+        st.markdown("---")
+        st.subheader("📋 Executive Fleet Summary")
+        df_res.index = np.arange(1, len(df_res) + 1)
+        st.dataframe(df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']].style.map(color_status, subset=['Status']), use_container_width=True)
+        # ----------------------------------------------------
+
         st.markdown("---")
         st.subheader("📈 Single Engine Detail (Multi-Phase Analysis)")
 
