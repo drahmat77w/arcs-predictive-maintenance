@@ -286,7 +286,7 @@ elif nav_module == "Home":
                 else:
                     st.success("✅ Seluruh armada dalam kondisi optimal. Tidak ada peringatan prioritas saat ini.")
 
-                st.info(f"💡 Untuk melihat analisis menyeluruh, *Fleet Health Summary*, dan mencetak MSAO, silakan masuk ke menu modul di Sidebar.")
+                st.info(f"💡 Untuk melihat analisis menyeluruh, *Fleet Health Summary*, dan mencetak Pre-Info Notification, silakan masuk ke menu modul Fuel Filter Replacement Forecasting di Sidebar.")
             else:
                 st.warning("Data arsip kosong.")
         except Exception as e:
