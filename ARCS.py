@@ -6,6 +6,7 @@ import json
 import io
 import tempfile
 import base64
+import pickle
 
 # ==========================================
 # 1. AUTO-FIX: INSTALL LIBRARY OTOMATIS
@@ -50,6 +51,7 @@ from datetime import timedelta, datetime
 import time
 import warnings
 import random
+import streamlit.components.v1 as components
 
 # --- 2. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="ARCS | Aircraft Reliability Control Systems", layout="wide", page_icon="✈️", initial_sidebar_state="expanded")
@@ -65,8 +67,12 @@ if 'engines' not in st.session_state:
     st.session_state['engines'] = []
 if 'run_time' not in st.session_state:
     st.session_state['run_time'] = None
+if 'analyzer_name' not in st.session_state:
+    st.session_state['analyzer_name'] = None
 if 'thesis_metrics' not in st.session_state:
     st.session_state['thesis_metrics'] = None
+if 'current_engine' not in st.session_state:
+    st.session_state['current_engine'] = None
 
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -104,14 +110,14 @@ if not st.session_state['logged_in']:
     with col2:
         st.markdown("""
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #FFF; letter-spacing: 1px; line-height: 1;">ARCS</h1>
-                <div style="width: 2px; height: 35px; background-color: #FFF; margin: 0 15px;"></div>
+                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #000; letter-spacing: 1px; line-height: 1;">ARCS</h1>
+                <div style="width: 2px; height: 35px; background-color: #000; margin: 0 15px;"></div>
                 <div style="text-align: left; line-height: 1.1;">
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Aircraft Reliability</span>
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Control Systems</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Aircraft Reliability</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Control Systems</span>
                 </div>
             </div>
-            <h3 style="font-size: 16px; margin-bottom: 5px; color: #FFF;">Login</h3>
+            <h3 style="font-size: 16px; margin-bottom: 5px; color: #000;">Login</h3>
         """, unsafe_allow_html=True)
         username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
         password = st.text_input("Password", placeholder="Password", type="password", label_visibility="collapsed")
@@ -133,8 +139,26 @@ if not st.session_state['logged_in']:
 st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
-# File penyimpan data spesifik berdasarkan engine yang dipilih
-SUMMARY_FILE = f"latest_summary_{nav_engine}.json"
+# PENYIMPANAN PERSISTENT (PICKLE) AGAR DATA TIDAK HILANG SAAT REFRESH
+SESSION_FILE = f"latest_session_{nav_engine}.pkl"
+
+# Reset tampilan data jika berpindah antar Engine Model
+if st.session_state.get('current_engine') != nav_engine:
+    st.session_state['current_engine'] = nav_engine
+    st.session_state['results'] = None 
+
+# Auto-Load data dari file Pickle (Jika ada) saat pertama kali buka / setelah refresh
+if st.session_state.get('results') is None and os.path.exists(SESSION_FILE):
+    try:
+        with open(SESSION_FILE, 'rb') as f:
+            saved_session = pickle.load(f)
+        st.session_state['run_time']       = saved_session.get('run_time')
+        st.session_state['analyzer_name']  = saved_session.get('analyzer_name')
+        st.session_state['engines']        = saved_session.get('engines')
+        st.session_state['results']        = saved_session.get('results')
+        st.session_state['thesis_metrics'] = saved_session.get('thesis_metrics')
+    except Exception as e:
+        pass # Jika file korup, lewati saja
 
 if nav_engine == "GE90-115B":
     nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
@@ -204,7 +228,7 @@ st.markdown(f"""
         .top3-esn {{ font-size: 16px; font-weight: 800; color: #002561; }}
         .top3-reg {{ font-size: 14px; color: #555; }}
         .top3-psi {{ font-size: 18px; font-weight: bold; color: #dc3545; float: right; }}
-        .top3-dates {{ font-size: 13px; color: #333; margin-top: 5px; display: flex; justify-content: space-between; }}
+        .top3-dates {{ font-size: 13px; color: #333; margin-top: 5px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;}}
     </style>
 """, unsafe_allow_html=True)
 
@@ -243,54 +267,64 @@ if nav_module == "Engine Health Analytics":
 # ----------------- HALAMAN HOME (PERSISTENT DATA - TOP 3 ONLY) -----------------
 elif nav_module == "Home":
     st.markdown('<div class="card-tool">', unsafe_allow_html=True)
+    
+    # Widget Jam Real Time menggunakan komponen HTML
+    clock_html = """
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #002561; padding: 10px 15px; background: #e9ecef; border-radius: 6px; border-left: 4px solid #005eb8; display: inline-block; margin-bottom: 15px;">
+        🕒 Current Time (UTC): <span id="clock" style="color: #000; font-weight: bold; font-family: monospace; font-size: 16px;"></span>
+    </div>
+    <script>
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toUTCString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+    </script>
+    """
+    components.html(clock_html, height=60)
+    
     st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Executive Overview: {nav_engine}</h2>', unsafe_allow_html=True)
     
-    if os.path.exists(SUMMARY_FILE):
-        try:
-            with open(SUMMARY_FILE, "r") as f:
-                saved_data = json.load(f)
-                
-            run_time = saved_data.get("run_time", "-")
-            results  = saved_data.get("results", [])
+    # Mengambil data dari RAM Streamlit (yang sudah di-load dari Pickle di awal)
+    if st.session_state.get('results') is not None:
+        run_time = st.session_state.get("run_time", "-")
+        results  = st.session_state.get("results", [])
+        
+        st.markdown(f"**Last Data Sync:** {run_time} (UTC)")
+        
+        # Mengurutkan berdasarkan PSID tertinggi (Dari yang terbesar ke terkecil)
+        sorted_res = sorted(results, key=lambda x: float(x['PSI']), reverse=True)
+        top_3 = sorted_res[:3]
+
+        if len(top_3) > 0:
+            st.markdown("<br><div class='top3-box'>", unsafe_allow_html=True)
+            st.markdown("<h3 class='top3-header'>🚨 Top Priority Engines (Highest Delta Pressure)</h3>", unsafe_allow_html=True)
             
-            if len(results) > 0:
-                st.markdown(f"**Last Sync:** {run_time} (UTC)")
+            for item in top_3:
+                esn = item['ESN']
+                reg = item['Reg']
+                psi = item['PSI']
+                p_date = item['Planner Date']
+                d_date = item['Date']
+                last_flight = item['Dates Info'].get('Last Flight TO', '-')
                 
-                # MURNI MENGURUTKAN BERDASARKAN PSI TERTINGGI (Tanpa filter status)
-                sorted_res = sorted(results, key=lambda x: float(x['PSI']), reverse=True)
-                
-                top_3 = sorted_res[:3]
+                st.markdown(f"""
+                <div class='top3-item'>
+                    <span class='top3-esn'>ESN: {esn}</span> <span class='top3-reg'>({reg})</span>
+                    <span class='top3-psi'>{psi} PSID</span>
+                    <div class='top3-dates'>
+                        <span><b>Last Flight:</b> <span style='color:#005eb8;'>{last_flight}</span></span>
+                        <span><b>Planner Action Date:</b> <span style='color:#d39e00;'>{p_date}</span></span>
+                        <span><b>Est. Due Date:</b> <span style='color:#dc3545;'>{d_date}</span></span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.success("✅ Seluruh armada dalam kondisi optimal. Tidak ada peringatan prioritas saat ini.")
 
-                if len(top_3) > 0:
-                    st.markdown("<br><div class='top3-box'>", unsafe_allow_html=True)
-                    st.markdown("<h3 class='top3-header'>🚨 Top Priority Engines (Highest Delta Pressure)</h3>", unsafe_allow_html=True)
-                    
-                    for item in top_3:
-                        esn = item['ESN']
-                        reg = item['Reg']
-                        psi = item['PSI']
-                        p_date = item['Planner Date']
-                        d_date = item['Date']
-                        
-                        st.markdown(f"""
-                        <div class='top3-item'>
-                            <span class='top3-esn'>ESN: {esn}</span> <span class='top3-reg'>({reg})</span>
-                            <span class='top3-psi'>{psi} PSID</span>
-                            <div class='top3-dates'>
-                                <span><b>Planner Action Date:</b> <span style='color:#d39e00;'>{p_date}</span></span>
-                                <span><b>Est. Due Date:</b> <span style='color:#dc3545;'>{d_date}</span></span>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.success("✅ Seluruh armada dalam kondisi optimal. Tidak ada peringatan prioritas saat ini.")
-
-                st.info(f"💡 Untuk melihat analisis menyeluruh, *Fleet Health Summary*, dan mencetak Pre-Info Notification, silakan masuk ke menu modul Fuel Filter Replacement Forecasting di Sidebar.")
-            else:
-                st.warning("Data arsip kosong.")
-        except Exception as e:
-            st.error(f"Gagal membaca arsip data: {e}")
+        st.info(f"💡 Untuk melihat analisis menyeluruh, *Fleet Health Summary*, dan mencetak MSAO, silakan masuk ke menu **Fuel Filter Replacement Forecasting** di Sidebar.")
     else:
         st.info(f"ℹ️ Belum ada data analisis yang tersimpan untuk armada {nav_engine}. Silakan jalankan analisis di modul terkait.")
         
@@ -547,6 +581,9 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             if uploaded_file is not None:
                 reset_seeds(42)
                 st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
+                # Menyimpan nama user yang melakukan analisis di sesi ini
+                st.session_state['analyzer_name'] = st.session_state['employee_name']
+                
                 start_time   = time.time()
                 progress_bar = st.progress(0)
                 status_text  = st.empty()
@@ -1052,24 +1089,19 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                 st.session_state['results']  = forecast_report
                 st.session_state['engines']  = engines
                 
-                # --- AUTO-SAVE JSON UNTUK HOME PAGE SPESIFIK ENGINE ---
+                # --- AUTO-SAVE SESSION (PICKLE) AGAR PERSISTENT TERHADAP REFRESH ---
                 try:
-                    summary_to_save = {
+                    session_to_save = {
                         "run_time": st.session_state['run_time'],
+                        "analyzer_name": st.session_state['analyzer_name'],
                         "engines": engines,
-                        "results": []
+                        "results": forecast_report,
+                        "thesis_metrics": st.session_state.get('thesis_metrics')
                     }
-                    for r in forecast_report:
-                        clean_r = {
-                            'ESN': r['ESN'], 'Reg': r['Reg'], 'PSI': float(r['PSI']),
-                            'Status': str(r['Status']), 'Planner Date': str(r['Planner Date']),
-                            'Date': str(r['Date']), 'Cycles': int(r['Cycles']) if r['Cycles'] != 9999 else 9999
-                        }
-                        summary_to_save["results"].append(clean_r)
-                    with open(SUMMARY_FILE, 'w') as f:
-                        json.dump(summary_to_save, f)
+                    with open(SESSION_FILE, 'wb') as f:
+                        pickle.dump(session_to_save, f)
                 except Exception as e:
-                    st.warning(f"Failed to auto-save summary to Home Page: {e}")
+                    st.warning(f"Failed to auto-save session: {e}")
                 
                 progress_bar.empty()
                 status_text.success(f"✅ Analysis Complete! Total Elapsed Time: {elapsed_str}")
@@ -1083,11 +1115,13 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         results      = st.session_state['results']
         engines_list = st.session_state.get('engines', [])
         run_time     = st.session_state.get('run_time', '-')
+        analyzer_nm  = st.session_state.get('analyzer_name', 'System')
         df_res       = pd.DataFrame(results)
 
         st.markdown(f"**Session Analysis performed on:** {run_time} (UTC)")
+        st.markdown(f"**Analyzed by:** {analyzer_nm}")
         
-        # --- FLEET HEALTH OVERVIEW (DIKEMBALIKAN KE SINI) ---
+        # --- FLEET HEALTH OVERVIEW ---
         col1, col2, col3, col4 = st.columns(4)
         crit   = len(df_res[df_res['Status'].str.contains('CRITICAL')])
         warn   = len(df_res[df_res['Status'].str.contains('WARNING')])
@@ -1205,8 +1239,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         with st.form(key="signature_form"):
             col_s1, col_s2, col_s3 = st.columns(3)
             with col_s1: input_name = st.text_input("Name", value=user_display_name)
-            with col_s2: input_phone = st.text_input("Phone Number", value="+62")
-            with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id")
+            with col_s2: input_phone = st.text_input("Phone Number", value="+6281904706205")
+            with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
             
             st.markdown("---")
             # Fitur Upload Gambar (Mendukung banyak file dan format)
