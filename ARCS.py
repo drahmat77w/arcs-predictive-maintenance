@@ -139,7 +139,6 @@ SUMMARY_FILE = f"latest_summary_{nav_engine}.json"
 if nav_engine == "GE90-115B":
     nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
 else:
-    # Memastikan halaman Home tetap ada untuk CFM56-5B
     nav_module = st.sidebar.radio("Module", ["Home", "Engine Health Analytics"])
 
 st.sidebar.markdown("---")
@@ -257,12 +256,8 @@ elif nav_module == "Home":
             if len(results) > 0:
                 st.markdown(f"**Last Sync:** {run_time} (UTC)")
                 
-                # Filter hanya yang berstatus rentan (Bukan Normal/Parked/Insufficient)
-                vulnerable_status = ["CRITICAL", "WARNING", "ON WATCH"]
-                filtered_res = [r for r in results if any(s in r['Status'] for s in vulnerable_status)]
-                
-                # Mengurutkan berdasarkan PSID tertinggi (Dari yang terbesar ke terkecil)
-                sorted_res = sorted(filtered_res, key=lambda x: float(x['PSI']), reverse=True)
+                # MURNI MENGURUTKAN BERDASARKAN PSI TERTINGGI (Tanpa filter status)
+                sorted_res = sorted(results, key=lambda x: float(x['PSI']), reverse=True)
                 
                 top_3 = sorted_res[:3]
 
