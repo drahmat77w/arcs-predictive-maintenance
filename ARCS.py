@@ -261,15 +261,14 @@ elif nav_module == "Home":
                 vulnerable_status = ["CRITICAL", "WARNING", "ON WATCH"]
                 filtered_res = [r for r in results if any(s in r['Status'] for s in vulnerable_status)]
                 
-                # Mengurutkan berdasarkan sisa Siklus (Cycles) terkecil. 
-                # 0 atau angka kecil berarti sangat mendesak.
-                sorted_res = sorted(filtered_res, key=lambda x: x['Cycles'])
+                # Mengurutkan berdasarkan PSID tertinggi (Dari yang terbesar ke terkecil)
+                sorted_res = sorted(filtered_res, key=lambda x: float(x['PSI']), reverse=True)
                 
                 top_3 = sorted_res[:3]
 
                 if len(top_3) > 0:
                     st.markdown("<br><div class='top3-box'>", unsafe_allow_html=True)
-                    st.markdown("<h3 class='top3-header'>🚨 Top Priority Engines (Nearest to Maintenance)</h3>", unsafe_allow_html=True)
+                    st.markdown("<h3 class='top3-header'>🚨 Top Priority Engines (Highest Delta Pressure)</h3>", unsafe_allow_html=True)
                     
                     for item in top_3:
                         esn = item['ESN']
