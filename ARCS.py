@@ -1239,8 +1239,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         with st.form(key="signature_form"):
             col_s1, col_s2, col_s3 = st.columns(3)
             with col_s1: input_name = st.text_input("Name", value=user_display_name)
-            with col_s2: input_phone = st.text_input("Phone Number", value="+6281904706205")
-            with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
+            with col_s2: input_phone = st.text_input("Phone Number", value="+62")
+            with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id")
             
             st.markdown("---")
             # Fitur Upload Gambar (Mendukung banyak file dan format)
