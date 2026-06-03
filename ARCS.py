@@ -134,8 +134,9 @@ if not st.session_state['logged_in']:
 st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
+# MENGEMBALIKAN "Home" KE DALAM DAFTAR DAN MENJADIKANNYA URUTAN PERTAMA
 if nav_engine == "GE90-115B":
-    nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Forecasting", "Engine Health Analytics"])
+    nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
 else:
     nav_module = st.sidebar.radio("Module", ["Home", "Engine Health Analytics"])
 
@@ -214,6 +215,7 @@ def color_status(val):
     elif "INSUFFICIENT" in val: return 'background-color: #17a2b8; color: white; font-weight: bold;'
     else:                       return 'background-color: #28a745; color: white; font-weight: bold;'
 
+
 # ==========================================
 # 6. ROUTING HALAMAN
 # ==========================================
@@ -258,19 +260,19 @@ elif nav_module == "Home":
                 df_res.index = np.arange(1, len(df_res) + 1)
                 st.dataframe(df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']].style.map(color_status, subset=['Status']), use_container_width=True)
                 
-                st.info("💡 Untuk melihat detail kurva probabilitas dan mengekspor dokumen MSAO (PDF), silakan pindah ke menu **Fuel Filter Forecasting** di Sidebar.")
+                st.info("💡 Untuk melihat detail kurva probabilitas dan mengekspor dokumen MSAO (PDF), silakan pindah ke menu **Fuel Filter Replacement Forecasting** di Sidebar.")
             else:
                 st.warning("Data arsip kosong.")
         except Exception as e:
             st.error(f"Gagal membaca arsip data: {e}")
     else:
-        st.info("ℹ️ Belum ada data analisis yang tersimpan. Silakan masuk ke menu **Fuel Filter Forecasting** untuk mengunggah dan melatih data sensor terbaru.")
+        st.info("ℹ️ Belum ada data analisis yang tersimpan. Silakan masuk ke menu **Fuel Filter Replacement Forecasting** untuk mengunggah dan melatih data sensor terbaru.")
         
     st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ----------------- HALAMAN FORECASTING (KERJA ENGINEER) -----------------
-elif nav_module == "Fuel Filter Forecasting":
+elif nav_module == "Fuel Filter Replacement Forecasting":
 
     # --- FUNGSI TEKNIS & PDF ---
     def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
@@ -502,10 +504,11 @@ elif nav_module == "Fuel Filter Forecasting":
             self.progress_bar.progress(pct)
             self.status_text.text(f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
 
+
     # --- DASHBOARD FORECASTING ---
     with st.container():
         st.markdown('<div class="card-tool">', unsafe_allow_html=True)
-        st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Fuel Filter Forecasting: {nav_engine}</h2>', unsafe_allow_html=True)
+        st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Fuel Filter Replacement Forecasting: {nav_engine}</h2>', unsafe_allow_html=True)
 
         col_up, col_opt = st.columns([3, 1])
         with col_up:
