@@ -1201,6 +1201,12 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("<div style='background-color:#f8f9fa; padding:25px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
         st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments</span><br><br>", unsafe_allow_html=True)
+        
+        with st.form(key="signature_form"):
+            col_s1, col_s2, col_s3 = st.columns(3)
+            with col_s1: input_name = st.text_input("Name", value=user_display_name)
+            with col_s2: input_phone = st.text_input("Phone Number", value="+62")
+            with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id")
             
             st.markdown("---")
             # Fitur Upload Gambar (Mendukung banyak file dan format)
@@ -1213,11 +1219,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             
             submit_signature = st.form_submit_button("🔄 Apply All Data to PDF")
             
-        with st.form(key="signature_form"):
-            col_s1, col_s2, col_s3 = st.columns(3)
-            with col_s1: input_name = st.text_input("Name", value=user_display_name)
-            with col_s2: input_phone = st.text_input("Phone Number", value="+62")
-            with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id")
         st.markdown("</div>", unsafe_allow_html=True)
 
         # Logika iterasi gambar & proteksi maksimal 10MB per file
