@@ -1,8 +1,10 @@
 streamlit
 pandas
 numpy
-tensorflow-cpu
+tensorflow
 scikit-learn
 plotly
+kaleido
 fpdf
-openpyxl
+Pillow
+scipy
