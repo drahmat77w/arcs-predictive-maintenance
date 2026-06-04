@@ -74,12 +74,18 @@ if 'thesis_metrics' not in st.session_state:
 if 'current_engine' not in st.session_state:
     st.session_state['current_engine'] = None
 
+# --- PERBAIKAN: BULLETPROOF SEED LOCKING ---
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
+    # Memaksa determinisme penuh pada level operasi TensorFlow (Tersedia di TF >= 2.8)
+    try:
+        tf.config.experimental.enable_op_determinism()
+    except Exception:
+        pass
     tf.keras.backend.clear_session()
 
 
@@ -293,7 +299,7 @@ elif nav_module == "Home":
         
         st.markdown(f"**Last Data Sync:** {run_time} (UTC)")
         
-        # Mengurutkan berdasarkan PSID tertinggi (Dari yang terbesar ke terkecil)
+        # MURNI MENGURUTKAN BERDASARKAN PSI TERTINGGI (Tanpa filter status)
         sorted_res = sorted(results, key=lambda x: float(x['PSI']), reverse=True)
         top_3 = sorted_res[:3]
 
@@ -344,11 +350,14 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
         return view.copy()  
 
-    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int) -> np.ndarray:
+    # --- PERBAIKAN: LOCALIZED RANDOM GENERATOR UNTUK MONTE CARLO ---
+    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int, seed: int = 42) -> np.ndarray:
+        # Menggunakan Generator Lokal yang diisolasi, sehingga tidak terpengaruh oleh state global Keras/TF
+        rng = np.random.default_rng(seed)
         base_arr     = base_curve[:n_steps]
         base_delta   = base_arr - base_arr[0]                       
-        start_noises = np.random.normal(0.0,  0.05, n_iter)         
-        drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
+        start_noises = rng.normal(0.0,  0.05, n_iter)         
+        drift_rfs    = rng.normal(1.0,  0.15, n_iter)         
         return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
     class PDFReport(FPDF):
@@ -579,7 +588,9 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         if st.button("🚀 Run Analysis", key="btn_run"):
             if uploaded_file is not None:
+                # Memanggil fungsi kunci seed di sini
                 reset_seeds(42)
+                
                 st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
                 # Menyimpan nama user yang melakukan analisis di sesi ini
                 st.session_state['analyzer_name'] = st.session_state['employee_name']
@@ -778,7 +789,9 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     importances   = {}
                     for i in range(2):
                         X_shuff              = X_val_seq.copy()
-                        shuffle_idx          = np.random.permutation(len(X_shuff))
+                        # --- PERBAIKAN: LOCALIZED RANDOM GENERATOR UNTUK SHUFFLE ---
+                        shuffle_rng          = np.random.default_rng(42 + i)
+                        shuffle_idx          = shuffle_rng.permutation(len(X_shuff))
                         X_shuff[:, :, i]     = X_val_seq[shuffle_idx, :, i]
                         pred_shuff           = model.predict(X_shuff, verbose=0)
                         pred_shuff_real      = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -952,7 +965,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 e_importances = {}
                                 for i in range(2):
                                     X_shuff          = X_eval.copy()
-                                    shuffle_idx      = np.random.permutation(len(X_shuff))
+                                    shuffle_rng_e    = np.random.default_rng(42 + i)
+                                    shuffle_idx      = shuffle_rng_e.permutation(len(X_shuff))
                                     X_shuff[:, :, i] = X_eval[shuffle_idx, :, i]
                                     pred_shuff       = model.predict(X_shuff, verbose=0)
                                     pred_shuff_real  = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -1037,8 +1051,10 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                     rem = PREDICT_STEPS - i - 1
                                     if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                     break
-
-                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
+                            
+                            # --- PERBAIKAN: LOCALIZED SEED UNTUK MONTE CARLO ---
+                            # Memberikan seed yang tetap (berdasarkan indeks ESN) agar noise-nya selalu stabil!
+                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS, seed=(42 + idx))
                             upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                             lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
                             final_curve = np.mean(mc_results, axis=0)
