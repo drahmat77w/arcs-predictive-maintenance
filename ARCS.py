@@ -1,6 +1,5 @@
 import os
 import sys
-import subprocess
 import math
 import json
 import io
@@ -9,38 +8,32 @@ import base64
 import pickle
 
 # ==========================================
-# 1. AUTO-FIX: INSTALL LIBRARY OTOMATIS
+# 1. IMPORT LIBRARY (TANPA SUBPROCESS/AUTO-FIX)
 # ==========================================
-try:
-    import plotly.graph_objects as go
-    import plotly.express as px
-    import plotly.figure_factory as ff
-    from plotly.subplots import make_subplots
-    from sklearn.ensemble import IsolationForest
-    from sklearn.metrics import (
-        mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
-        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
-    )
-    from tensorflow.keras.callbacks import EarlyStopping
-    from fpdf import FPDF
-    from PIL import Image
-except ImportError:
-    print("⚠️ Menginstall library tambahan...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", 
-                           "plotly", "scikit-learn", "fpdf", "scipy", "Pillow"])
-    import plotly.graph_objects as go
-    import plotly.express as px
-    import plotly.figure_factory as ff
-    from plotly.subplots import make_subplots
-    from sklearn.ensemble import IsolationForest
-    from sklearn.metrics import (
-        mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
-        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
-    )
-    from tensorflow.keras.callbacks import EarlyStopping
-    from fpdf import FPDF
-    from PIL import Image
-    print("✅ Library berhasil diinstall!")
+# PASTIKAN ANDA MEMILIKI FILE requirements.txt DI GITHUB BERISI:
+# streamlit
+# pandas
+# numpy
+# tensorflow
+# scikit-learn
+# plotly
+# kaleido
+# fpdf
+# Pillow
+# scipy
+
+import plotly.graph_objects as go
+import plotly.express as px
+import plotly.figure_factory as ff
+from plotly.subplots import make_subplots
+from sklearn.ensemble import IsolationForest
+from sklearn.metrics import (
+    mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
+    accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
+)
+from tensorflow.keras.callbacks import EarlyStopping
+from fpdf import FPDF
+from PIL import Image
 
 import streamlit as st
 import pandas as pd
@@ -74,18 +67,13 @@ if 'thesis_metrics' not in st.session_state:
 if 'current_engine' not in st.session_state:
     st.session_state['current_engine'] = None
 
-# --- PERBAIKAN: BULLETPROOF SEED LOCKING ---
+# MENGGUNAKAN RESET SEED DARI KODE MENTAH ANDA
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
-    # Memaksa determinisme penuh pada level operasi TensorFlow (Tersedia di TF >= 2.8)
-    try:
-        tf.config.experimental.enable_op_determinism()
-    except Exception:
-        pass
     tf.keras.backend.clear_session()
 
 
@@ -145,15 +133,12 @@ if not st.session_state['logged_in']:
 st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
-# PENYIMPANAN PERSISTENT (PICKLE) AGAR DATA TIDAK HILANG SAAT REFRESH
 SESSION_FILE = f"latest_session_{nav_engine}.pkl"
 
-# Reset tampilan data jika berpindah antar Engine Model
 if st.session_state.get('current_engine') != nav_engine:
     st.session_state['current_engine'] = nav_engine
     st.session_state['results'] = None 
 
-# Auto-Load data dari file Pickle (Jika ada) saat pertama kali buka / setelah refresh
 if st.session_state.get('results') is None and os.path.exists(SESSION_FILE):
     try:
         with open(SESSION_FILE, 'rb') as f:
@@ -164,7 +149,7 @@ if st.session_state.get('results') is None and os.path.exists(SESSION_FILE):
         st.session_state['results']        = saved_session.get('results')
         st.session_state['thesis_metrics'] = saved_session.get('thesis_metrics')
     except Exception as e:
-        pass # Jika file korup, lewati saja
+        pass 
 
 if nav_engine == "GE90-115B":
     nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
@@ -223,7 +208,6 @@ st.markdown(f"""
         .streamlit-expanderHeader {{ font-weight: bold; color: #002561; background-color: #e9ecef; border-radius: 5px; }}
         .thesis-section {{ padding: 10px; }}
         
-        /* CSS Khusus untuk Top 3 Alert Box */
         .top3-box {{
             background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; border-radius: 5px; margin-bottom: 15px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -250,7 +234,6 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Fungsi Pewarnaan Tabel Global
 def color_status(val):
     if   "CRITICAL"     in val: return 'background-color: #dc3545; color: white; font-weight: bold;'
     elif "WARNING"      in val: return 'background-color: #ffc107; color: white; font-weight: bold;'
@@ -270,11 +253,10 @@ if nav_module == "Engine Health Analytics":
     st.markdown(f"<h4 style='text-align: center; color: #888;'>The {nav_module} module for {nav_engine} is currently under development.</h4>", unsafe_allow_html=True)
     st.stop()
 
-# ----------------- HALAMAN HOME (PERSISTENT DATA - TOP 3 ONLY) -----------------
+# ----------------- HALAMAN HOME -----------------
 elif nav_module == "Home":
     st.markdown('<div class="card-tool">', unsafe_allow_html=True)
     
-    # Widget Jam Real Time menggunakan komponen HTML
     clock_html = """
     <div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #002561; padding: 10px 15px; background: #e9ecef; border-radius: 6px; border-left: 4px solid #005eb8; display: inline-block; margin-bottom: 15px;">
         🕒 Current Time (UTC): <span id="clock" style="color: #000; font-weight: bold; font-family: monospace; font-size: 16px;"></span>
@@ -292,14 +274,12 @@ elif nav_module == "Home":
     
     st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Executive Overview: {nav_engine}</h2>', unsafe_allow_html=True)
     
-    # Mengambil data dari RAM Streamlit (yang sudah di-load dari Pickle di awal)
     if st.session_state.get('results') is not None:
         run_time = st.session_state.get("run_time", "-")
         results  = st.session_state.get("results", [])
         
         st.markdown(f"**Last Data Sync:** {run_time} (UTC)")
         
-        # MURNI MENGURUTKAN BERDASARKAN PSI TERTINGGI (Tanpa filter status)
         sorted_res = sorted(results, key=lambda x: float(x['PSI']), reverse=True)
         top_3 = sorted_res[:3]
 
@@ -337,10 +317,10 @@ elif nav_module == "Home":
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ----------------- HALAMAN FORECASTING (KERJA ENGINEER) -----------------
+# ----------------- HALAMAN FORECASTING -----------------
 elif nav_module == "Fuel Filter Replacement Forecasting":
 
-    # --- FUNGSI TEKNIS & PDF ---
+    # --- FUNGSI TEKNIS MENGGUNAKAN LOGIKA KODE MENTAH ANDA ---
     def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
         N, F = arr2d.shape
         out_len = N - window_size
@@ -350,15 +330,28 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
         return view.copy()  
 
-    # --- PERBAIKAN: LOCALIZED RANDOM GENERATOR UNTUK MONTE CARLO ---
-    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int, seed: int = 42) -> np.ndarray:
-        # Menggunakan Generator Lokal yang diisolasi, sehingga tidak terpengaruh oleh state global Keras/TF
-        rng = np.random.default_rng(seed)
+    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int) -> np.ndarray:
+        # Mengembalikan sifat Probabilistik Natural (tanpa Local Seed kaku) sesuai kode mentah Anda
         base_arr     = base_curve[:n_steps]
         base_delta   = base_arr - base_arr[0]                       
-        start_noises = rng.normal(0.0,  0.05, n_iter)         
-        drift_rfs    = rng.normal(1.0,  0.15, n_iter)         
+        start_noises = np.random.normal(0.0,  0.05, n_iter)         
+        drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
         return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
+
+    def physics_degradation_model(start_psi, drift_rate, steps):
+        preds = []
+        curr_epsilon = INITIAL_POROSITY
+        struct_term  = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
+        k_system     = max(start_psi, 0.1) / struct_term
+        for _ in range(steps):
+            blocking_effect  = drift_rate * (1 / (curr_epsilon + 0.05))
+            curr_epsilon    -= blocking_effect
+            if curr_epsilon < 0.05:
+                curr_epsilon = 0.05
+            new_struct_term = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
+            new_pressure    = k_system * new_struct_term
+            preds.append(new_pressure)
+        return np.array(preds)
 
     class PDFReport(FPDF):
         def __init__(self):
@@ -541,7 +534,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         return bytes(pdf.output(dest='S').encode('latin-1'))
 
-    # --- LOGIKA FISIKA & PARAMETER AI ---
     warnings.filterwarnings('ignore')
 
     CYCLES_PER_DAY         = 2
@@ -573,8 +565,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.progress_bar.progress(pct)
             self.status_text.text(f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
 
-
-    # --- DASHBOARD FORECASTING ---
     with st.container():
         st.markdown('<div class="card-tool">', unsafe_allow_html=True)
         st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Fuel Filter Replacement Forecasting: {nav_engine}</h2>', unsafe_allow_html=True)
@@ -588,11 +578,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         if st.button("🚀 Run Analysis", key="btn_run"):
             if uploaded_file is not None:
-                # Memanggil fungsi kunci seed di sini
                 reset_seeds(42)
-                
                 st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
-                # Menyimpan nama user yang melakukan analisis di sesi ini
                 st.session_state['analyzer_name'] = st.session_state['employee_name']
                 
                 start_time   = time.time()
@@ -789,9 +776,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     importances   = {}
                     for i in range(2):
                         X_shuff              = X_val_seq.copy()
-                        # --- PERBAIKAN: LOCALIZED RANDOM GENERATOR UNTUK SHUFFLE ---
-                        shuffle_rng          = np.random.default_rng(42 + i)
-                        shuffle_idx          = shuffle_rng.permutation(len(X_shuff))
+                        # Menggunakan logik original tanpa rng local
+                        shuffle_idx          = np.random.permutation(len(X_shuff))
                         X_shuff[:, :, i]     = X_val_seq[shuffle_idx, :, i]
                         pred_shuff           = model.predict(X_shuff, verbose=0)
                         pred_shuff_real      = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -965,8 +951,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 e_importances = {}
                                 for i in range(2):
                                     X_shuff          = X_eval.copy()
-                                    shuffle_rng_e    = np.random.default_rng(42 + i)
-                                    shuffle_idx      = shuffle_rng_e.permutation(len(X_shuff))
+                                    shuffle_idx      = np.random.permutation(len(X_shuff))
                                     X_shuff[:, :, i] = X_eval[shuffle_idx, :, i]
                                     pred_shuff       = model.predict(X_shuff, verbose=0)
                                     pred_shuff_real  = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -1052,9 +1037,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                     if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                     break
                             
-                            # --- PERBAIKAN: LOCALIZED SEED UNTUK MONTE CARLO ---
-                            # Memberikan seed yang tetap (berdasarkan indeks ESN) agar noise-nya selalu stabil!
-                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS, seed=(42 + idx))
+                            # Menggunakan perhitungan probabilitas asli tanpa lock seed paksa
+                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
                             upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                             lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
                             final_curve = np.mean(mc_results, axis=0)
