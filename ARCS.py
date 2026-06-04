@@ -3,25 +3,16 @@ import sys
 import math
 import json
 import io
-import tempfile
 import base64
 import pickle
+from datetime import timedelta, datetime
+import time
+import warnings
+import random
 
 # ==========================================
-# 1. IMPORT LIBRARY (TANPA SUBPROCESS/AUTO-FIX)
+# 1. IMPORT LIBRARY UTAMA (TANPA SUBPROCESS)
 # ==========================================
-# PASTIKAN ANDA MEMILIKI FILE requirements.txt DI GITHUB BERISI:
-# streamlit
-# pandas
-# numpy
-# tensorflow
-# scikit-learn
-# plotly
-# kaleido
-# fpdf
-# Pillow
-# scipy
-
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.figure_factory as ff
@@ -40,10 +31,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
-from datetime import timedelta, datetime
-import time
-import warnings
-import random
 import streamlit.components.v1 as components
 
 # --- 2. KONFIGURASI HALAMAN ---
@@ -67,7 +54,6 @@ if 'thesis_metrics' not in st.session_state:
 if 'current_engine' not in st.session_state:
     st.session_state['current_engine'] = None
 
-# MENGGUNAKAN RESET SEED DARI KODE MENTAH ANDA
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -247,7 +233,6 @@ def color_status(val):
 # 6. ROUTING HALAMAN
 # ==========================================
 
-# ----------------- HALAMAN COMING SOON -----------------
 if nav_module == "Engine Health Analytics":
     st.markdown(f"<br><br><br><h1 style='text-align: center; color: #555;'>🚧 Coming Soon</h1>", unsafe_allow_html=True)
     st.markdown(f"<h4 style='text-align: center; color: #888;'>The {nav_module} module for {nav_engine} is currently under development.</h4>", unsafe_allow_html=True)
@@ -320,7 +305,7 @@ elif nav_module == "Home":
 # ----------------- HALAMAN FORECASTING -----------------
 elif nav_module == "Fuel Filter Replacement Forecasting":
 
-    # --- FUNGSI TEKNIS MENGGUNAKAN LOGIKA KODE MENTAH ANDA ---
+    # --- FUNGSI TEKNIS ---
     def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
         N, F = arr2d.shape
         out_len = N - window_size
@@ -330,28 +315,13 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
         return view.copy()  
 
-    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int) -> np.ndarray:
-        # Mengembalikan sifat Probabilistik Natural (tanpa Local Seed kaku) sesuai kode mentah Anda
+    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int, seed: int = 42) -> np.ndarray:
+        rng = np.random.default_rng(seed)
         base_arr     = base_curve[:n_steps]
         base_delta   = base_arr - base_arr[0]                       
-        start_noises = np.random.normal(0.0,  0.05, n_iter)         
-        drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
+        start_noises = rng.normal(0.0,  0.05, n_iter)         
+        drift_rfs    = rng.normal(1.0,  0.15, n_iter)         
         return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
-
-    def physics_degradation_model(start_psi, drift_rate, steps):
-        preds = []
-        curr_epsilon = INITIAL_POROSITY
-        struct_term  = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
-        k_system     = max(start_psi, 0.1) / struct_term
-        for _ in range(steps):
-            blocking_effect  = drift_rate * (1 / (curr_epsilon + 0.05))
-            curr_epsilon    -= blocking_effect
-            if curr_epsilon < 0.05:
-                curr_epsilon = 0.05
-            new_struct_term = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
-            new_pressure    = k_system * new_struct_term
-            preds.append(new_pressure)
-        return np.array(preds)
 
     class PDFReport(FPDF):
         def __init__(self):
@@ -365,7 +335,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
             self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
-    def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", images_bytes_list=None, notes=None):
+    # FUNGSI PDF BERSIH DARI KALEIDO / GAMBAR PLOTLY
+    def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", notes=None):
         pdf = PDFReport()
         pdf.alias_nb_pages()
         pdf.add_page()
@@ -451,43 +422,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             pdf.cell(40, 6, str(row['Value at Obs. Date']), border=1, align='C')
             pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
         pdf.ln(5)
-
-        if images_bytes_list and len(images_bytes_list) > 0:
-            for img_bytes in images_bytes_list:
-                try:
-                    img = Image.open(io.BytesIO(img_bytes))
-                    if img.mode in ('RGBA', 'P', 'LA'):
-                        background = Image.new('RGB', img.size, (255, 255, 255))
-                        if len(img.split()) >= 4: background.paste(img, mask=img.split()[3])
-                        else: background.paste(img)
-                        img = background
-                    elif img.mode != 'RGB': img = img.convert('RGB')
-                    
-                    img_w_px, img_h_px = img.size
-                    aspect_ratio = img_h_px / img_w_px
-                    pdf_w = 190 
-                    pdf_h = pdf_w * aspect_ratio
-                    
-                    x_pos = 10
-                    if pdf_h > 240:
-                        pdf_h = 240
-                        pdf_w = pdf_h / aspect_ratio
-                        x_pos = 10 + (190 - pdf_w) / 2 
-                    
-                    if pdf.get_y() + pdf_h > 270: pdf.add_page()
-                    else: pdf.ln(5)
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
-                        img.save(tmp, format='JPEG', quality=95)
-                        tmp_path = tmp.name
-                    
-                    pdf.image(tmp_path, x=x_pos, w=pdf_w, h=pdf_h) 
-                    os.unlink(tmp_path)
-                    pdf.ln(5)
-                except Exception as e:
-                    pdf.set_font("Courier", 'I', 9); pdf.set_text_color(255, 0, 0)
-                    pdf.cell(0, 5, f"[Error processing uploaded image: {e}]", ln=True)
-                    pdf.set_text_color(0, 0, 0); pdf.ln(5)
 
         if notes and str(notes).strip() != "":
             if pdf.get_y() > 250: pdf.add_page()
@@ -776,7 +710,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     importances   = {}
                     for i in range(2):
                         X_shuff              = X_val_seq.copy()
-                        # Menggunakan logik original tanpa rng local
                         shuffle_idx          = np.random.permutation(len(X_shuff))
                         X_shuff[:, :, i]     = X_val_seq[shuffle_idx, :, i]
                         pred_shuff           = model.predict(X_shuff, verbose=0)
@@ -842,6 +775,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     ref_date_str = obs_date_str = last_flight_to = last_flight_cr = "-"
                     obs_date_val = None
 
+                    # --- PERBAIKAN LOGIKA: HISTORICAL DRIFT ANCHOR ---
+                    hist_drift_per_step = MIN_DRIFT_RATE
                     if not df_window.empty:
                         min_idx       = df_window['Pressure_Final'].idxmin()
                         baseline_row  = df_window.loc[min_idx]
@@ -853,6 +788,11 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                         shift_psi    = curr_psi - baseline_psi
                         ref_date_str = ref_date_val.strftime('%d-%b-%Y')
                         obs_date_str = obs_date_val.strftime('%d-%b-%Y')
+                        
+                        # Menghitung slope kemiringan riil 30 hari terakhir
+                        if recent_data_count > 1 and (obs_date_val - ref_date_val).days > 0:
+                            hist_drift_per_day = shift_psi / (obs_date_val - ref_date_val).days
+                            hist_drift_per_step = max(MIN_DRIFT_RATE, hist_drift_per_day / CYCLES_PER_DAY)
 
                         if curr_psi > GE_SOFT_LIMIT and shift_psi > RAPID_SHIFT_THRESHOLD: health_msg = "CRITICAL (CNR Triggered)"
                         elif shift_psi > RAPID_SHIFT_THRESHOLD: health_msg = "WARNING (Rapid Shift)"
@@ -951,7 +891,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 e_importances = {}
                                 for i in range(2):
                                     X_shuff          = X_eval.copy()
-                                    shuffle_idx      = np.random.permutation(len(X_shuff))
+                                    shuffle_rng_e    = np.random.default_rng(42 + i)
+                                    shuffle_idx      = shuffle_rng_e.permutation(len(X_shuff))
                                     X_shuff[:, :, i] = X_eval[shuffle_idx, :, i]
                                     pred_shuff       = model.predict(X_shuff, verbose=0)
                                     pred_shuff_real  = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -1005,11 +946,20 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 next_p_ai   = _unscale_p(next_scaled)
 
                                 ai_drift = (next_p_ai - curr_psi_loop) * TAKEOFF_DAMPING_FACTOR
-                                if ai_drift < MIN_DRIFT_RATE: ai_drift = MIN_DRIFT_RATE
+                                
+                                # --- PERBAIKAN LOGIKA 1: SLOPE CLAMPING ---
+                                # Jika filter masih sangat sehat (< 9 PSI), ikat prediksi AI ke tren historis aslinya
+                                if curr_psi_loop < 9.0:
+                                    max_allowed_drift = max(MIN_DRIFT_RATE, hist_drift_per_step * 2.0)
+                                    ai_drift = min(max(ai_drift, MIN_DRIFT_RATE), max_allowed_drift)
+                                else:
+                                    ai_drift = max(ai_drift, MIN_DRIFT_RATE)
 
                                 blocking_effect = ai_drift * (1 / (curr_epsilon + 0.05))
-                                if curr_psi_loop < 9.0: blocking_effect = min(blocking_effect, 0.0001)
-                                elif curr_psi_loop < 11.0: blocking_effect = min(blocking_effect, 0.001)
+                                
+                                # Mengurangi laju penutupan pori pada saat filter masih bersih
+                                if curr_psi_loop < 9.0: blocking_effect = min(blocking_effect, 0.00005)
+                                elif curr_psi_loop < 11.0: blocking_effect = min(blocking_effect, 0.0005)
 
                                 curr_epsilon -= blocking_effect
                                 if curr_epsilon < 0.05: curr_epsilon = 0.05
@@ -1019,7 +969,12 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 physics_drift   = next_p_physics - curr_psi_loop
                                 if physics_drift < MIN_DRIFT_RATE: physics_drift = MIN_DRIFT_RATE
 
-                                trust_physics  = min(1.0, max(0.0, (curr_psi_loop - 9.0) / 4.0))
+                                # --- PERBAIKAN LOGIKA 2: 30% PHYSICS ANCHOR ---
+                                # Berapapun hasil prediksinya, minimal harus ada 30% campur tangan hukum Fisika
+                                base_trust = 0.3
+                                dynamic_trust  = min(1.0, max(0.0, (curr_psi_loop - 8.0) / 4.0))
+                                trust_physics = max(base_trust, dynamic_trust)
+
                                 blended_drift  = (1 - trust_physics) * ai_drift + trust_physics * physics_drift
                                 next_p_hybrid  = curr_psi_loop + blended_drift
 
@@ -1037,8 +992,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                     if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                     break
                             
-                            # Menggunakan perhitungan probabilitas asli tanpa lock seed paksa
-                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
+                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS, seed=(42 + idx))
                             upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                             lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
                             final_curve = np.mean(mc_results, axis=0)
@@ -1089,7 +1043,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                 st.session_state['results']  = forecast_report
                 st.session_state['engines']  = engines
                 
-                # --- AUTO-SAVE SESSION (PICKLE) AGAR PERSISTENT TERHADAP REFRESH ---
                 try:
                     session_to_save = {
                         "run_time": st.session_state['run_time'],
@@ -1137,7 +1090,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         st.subheader("📋 Executive Fleet Summary")
         df_res.index = np.arange(1, len(df_res) + 1)
         st.dataframe(df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']].style.map(color_status, subset=['Status']), use_container_width=True)
-        # ----------------------------------------------------
 
         st.markdown("---")
         st.subheader("📈 Single Engine Detail (Multi-Phase Analysis)")
@@ -1234,7 +1186,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         # --- Pindahkan Area Report Details ke Luar Kolom agar Full-Width ---
         st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("<div style='background-color:#f8f9fa; padding:25px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
-        st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments</span><br><br>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments (PDF)</span><br><br>", unsafe_allow_html=True)
         
         with st.form(key="signature_form"):
             col_s1, col_s2, col_s3 = st.columns(3)
@@ -1243,11 +1195,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
             
             st.markdown("---")
-            # Fitur Upload Gambar (Mendukung banyak file dan format)
-            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
-            
-            st.markdown("---")
-            # Fitur Notes (Aktif jika dicentang)
             use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
             custom_notes = st.text_area("Tulis catatan Engineer di sini:", disabled=not use_notes)
             
@@ -1255,24 +1202,14 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Logika iterasi gambar & proteksi maksimal 10MB per file
-        img_bytes_list = []
-        if uploaded_imgs:
-            for img_file in uploaded_imgs:
-                if img_file.size > 10 * 1024 * 1024:
-                    st.error(f"⚠️ Gambar {img_file.name} melebihi 10 MB. Silakan kompres gambar tersebut.")
-                else:
-                    img_bytes_list.append(img_file.getvalue())
-
         notes_text = custom_notes if use_notes else None
 
-        # Memanggil PDF dengan semua data baru (menggunakan List bytes gambar)
+        # Memanggil PDF BERSIH DARI KALEIDO
         pdf_bytes = generate_cnr_pdf(
             res, 
             user_name=input_name, 
             user_phone=input_phone, 
             user_email=input_email,
-            images_bytes_list=img_bytes_list,
             notes=notes_text
         )
 
