@@ -4,7 +4,6 @@ numpy
 tensorflow
 scikit-learn
 plotly
-kaleido
-fpdf
+fpdf2
 Pillow
 scipy
