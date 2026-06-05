@@ -512,7 +512,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.multi_cell(0, 4, disclaimer_text, align='L')
         pdf.set_text_color(0, 0, 0) 
 
-        return bytes(pdf.output(dest='S').encode('latin-1'))
+        # --- FIX: fpdf2 mengembalikan bytes secara langsung melalui pdf.output() ---
+        return bytes(pdf.output())
 
     # --- LOGIKA FISIKA & PARAMETER AI ---
     warnings.filterwarnings('ignore')
@@ -1253,7 +1254,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Proses Data PDF
         img_bytes_list = []
         if uploaded_imgs:
             for img_file in uploaded_imgs:
