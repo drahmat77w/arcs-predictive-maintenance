@@ -4,6 +4,6 @@ numpy
 tensorflow
 scikit-learn
 plotly
-fpdf2
+fpdf
 Pillow
 scipy
