@@ -1,38 +1,56 @@
 import os
 import sys
+import subprocess
 import math
 import json
 import io
 import tempfile
 import base64
 import pickle
-from datetime import timedelta, datetime
-import time
-import warnings
-import random
 
 # ==========================================
-# 1. IMPORT LIBRARY 
-# (Pastikan Anda menggunakan requirements.txt di GitHub)
+# 1. AUTO-FIX: INSTALL LIBRARY OTOMATIS
 # ==========================================
-import plotly.graph_objects as go
-import plotly.express as px
-import plotly.figure_factory as ff
-from plotly.subplots import make_subplots
-from sklearn.ensemble import IsolationForest
-from sklearn.metrics import (
-    mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
-    accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
-)
-from tensorflow.keras.callbacks import EarlyStopping
-from fpdf import FPDF
-from PIL import Image
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    import plotly.figure_factory as ff
+    from plotly.subplots import make_subplots
+    from sklearn.ensemble import IsolationForest
+    from sklearn.metrics import (
+        mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
+        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
+    )
+    from tensorflow.keras.callbacks import EarlyStopping
+    from fpdf import FPDF
+    from PIL import Image
+except ImportError:
+    print("⚠️ Menginstall library tambahan...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", 
+                           "plotly", "scikit-learn", "fpdf", "scipy", "Pillow"])
+    import plotly.graph_objects as go
+    import plotly.express as px
+    import plotly.figure_factory as ff
+    from plotly.subplots import make_subplots
+    from sklearn.ensemble import IsolationForest
+    from sklearn.metrics import (
+        mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
+        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
+    )
+    from tensorflow.keras.callbacks import EarlyStopping
+    from fpdf import FPDF
+    from PIL import Image
+    print("✅ Library berhasil diinstall!")
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
+from datetime import timedelta, datetime
+import time
+import warnings
+import random
 import streamlit.components.v1 as components
 
 # --- 2. KONFIGURASI HALAMAN ---
@@ -63,6 +81,7 @@ def reset_seeds(seed=42):
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
+    # Memaksa determinisme penuh pada level operasi TensorFlow (Tersedia di TF >= 2.8)
     try:
         tf.config.experimental.enable_op_determinism()
     except Exception:
@@ -126,12 +145,15 @@ if not st.session_state['logged_in']:
 st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
+# PENYIMPANAN PERSISTENT (PICKLE) AGAR DATA TIDAK HILANG SAAT REFRESH
 SESSION_FILE = f"latest_session_{nav_engine}.pkl"
 
+# Reset tampilan data jika berpindah antar Engine Model
 if st.session_state.get('current_engine') != nav_engine:
     st.session_state['current_engine'] = nav_engine
     st.session_state['results'] = None 
 
+# Auto-Load data dari file Pickle (Jika ada) saat pertama kali buka / setelah refresh
 if st.session_state.get('results') is None and os.path.exists(SESSION_FILE):
     try:
         with open(SESSION_FILE, 'rb') as f:
@@ -142,7 +164,7 @@ if st.session_state.get('results') is None and os.path.exists(SESSION_FILE):
         st.session_state['results']        = saved_session.get('results')
         st.session_state['thesis_metrics'] = saved_session.get('thesis_metrics')
     except Exception as e:
-        pass 
+        pass # Jika file korup, lewati saja
 
 if nav_engine == "GE90-115B":
     nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
@@ -201,6 +223,7 @@ st.markdown(f"""
         .streamlit-expanderHeader {{ font-weight: bold; color: #002561; background-color: #e9ecef; border-radius: 5px; }}
         .thesis-section {{ padding: 10px; }}
         
+        /* CSS Khusus untuk Top 3 Alert Box */
         .top3-box {{
             background-color: #fff3cd; border-left: 5px solid #ffc107; padding: 20px; border-radius: 5px; margin-bottom: 15px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -227,6 +250,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
+# Fungsi Pewarnaan Tabel Global
 def color_status(val):
     if   "CRITICAL"     in val: return 'background-color: #dc3545; color: white; font-weight: bold;'
     elif "WARNING"      in val: return 'background-color: #ffc107; color: white; font-weight: bold;'
@@ -240,15 +264,17 @@ def color_status(val):
 # 6. ROUTING HALAMAN
 # ==========================================
 
+# ----------------- HALAMAN COMING SOON -----------------
 if nav_module == "Engine Health Analytics":
     st.markdown(f"<br><br><br><h1 style='text-align: center; color: #555;'>🚧 Coming Soon</h1>", unsafe_allow_html=True)
     st.markdown(f"<h4 style='text-align: center; color: #888;'>The {nav_module} module for {nav_engine} is currently under development.</h4>", unsafe_allow_html=True)
     st.stop()
 
-# ----------------- HALAMAN HOME -----------------
+# ----------------- HALAMAN HOME (PERSISTENT DATA - TOP 3 ONLY) -----------------
 elif nav_module == "Home":
     st.markdown('<div class="card-tool">', unsafe_allow_html=True)
     
+    # Widget Jam Real Time menggunakan komponen HTML
     clock_html = """
     <div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #002561; padding: 10px 15px; background: #e9ecef; border-radius: 6px; border-left: 4px solid #005eb8; display: inline-block; margin-bottom: 15px;">
         🕒 Current Time (UTC): <span id="clock" style="color: #000; font-weight: bold; font-family: monospace; font-size: 16px;"></span>
@@ -264,23 +290,16 @@ elif nav_module == "Home":
     """
     components.html(clock_html, height=60)
     
-    # --- FITUR BARU: POSTER DINAMIS ---
-    if os.path.exists("poster.png"):
-        try:
-            st.image("poster.png", use_container_width=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-        except Exception:
-            pass # Abaikan jika gambar korup agar tidak merusak UI
-    # ----------------------------------
-    
     st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Executive Overview: {nav_engine}</h2>', unsafe_allow_html=True)
     
+    # Mengambil data dari RAM Streamlit (yang sudah di-load dari Pickle di awal)
     if st.session_state.get('results') is not None:
         run_time = st.session_state.get("run_time", "-")
         results  = st.session_state.get("results", [])
         
         st.markdown(f"**Last Data Sync:** {run_time} (UTC)")
         
+        # MURNI MENGURUTKAN BERDASARKAN PSI TERTINGGI (Tanpa filter status)
         sorted_res = sorted(results, key=lambda x: float(x['PSI']), reverse=True)
         top_3 = sorted_res[:3]
 
@@ -318,9 +337,10 @@ elif nav_module == "Home":
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ----------------- HALAMAN FORECASTING -----------------
+# ----------------- HALAMAN FORECASTING (KERJA ENGINEER) -----------------
 elif nav_module == "Fuel Filter Replacement Forecasting":
 
+    # --- FUNGSI TEKNIS & PDF ---
     def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
         N, F = arr2d.shape
         out_len = N - window_size
@@ -330,7 +350,9 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
         return view.copy()  
 
+    # --- PERBAIKAN: LOCALIZED RANDOM GENERATOR UNTUK MONTE CARLO ---
     def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int, seed: int = 42) -> np.ndarray:
+        # Menggunakan Generator Lokal yang diisolasi, sehingga tidak terpengaruh oleh state global Keras/TF
         rng = np.random.default_rng(seed)
         base_arr     = base_curve[:n_steps]
         base_delta   = base_arr - base_arr[0]                       
@@ -402,13 +424,15 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "3. Recommendation", ln=True)
         pdf.set_font("Courier", '', 10)
-        pdf.multi_cell(0, 5, "Dear MS-MCC,")
+        
+        # --- FIX: Ditambahkan align='L' pada semua pemanggilan multi_cell ---
+        pdf.multi_cell(0, 5, "Dear MS-MCC,", align='L')
         pdf.multi_cell(0, 5, ("Please help us create an MSAO to perform the following tasks during the "
                                "next maintenance or when the CNR is released:\n"
                                "- Fuel Filter Element Removal (AMM TASK 73-11-02-000-801-H01).\n"
-                               "- Fuel Filter Element Installation (AMM TASK 73-11-02-400-801-H01)."))
+                               "- Fuel Filter Element Installation (AMM TASK 73-11-02-400-801-H01)."), align='L')
         pdf.ln(3)
-        pdf.multi_cell(0, 5, "Dear TLP,")
+        pdf.multi_cell(0, 5, "Dear TLP,", align='L')
         pdf.write(5, "With this document, it is possible that a CNR will appear on the ")
         pdf.set_font("Courier", 'B', 10)
         pdf.write(5, str(res['Date']))
@@ -479,7 +503,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             else: pdf.ln(2)
             pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "6. Notes", ln=True)
             pdf.set_font("Courier", '', 10)
-            pdf.multi_cell(0, 5, str(notes).strip())
+            pdf.multi_cell(0, 5, str(notes).strip(), align='L')
             pdf.ln(5)
 
         if pdf.get_y() > 245: pdf.add_page()
@@ -488,7 +512,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.set_font("Courier", 'B', 10)
         pdf.cell(0, 5, "DISCLAIMER:", ln=True)
         pdf.set_font("Courier", 'I', 9)
-        pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.")
+        pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.", align='L')
         pdf.ln(5)
 
         if pdf.get_y() > 220: pdf.add_page()
@@ -519,6 +543,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         return bytes(pdf.output(dest='S').encode('latin-1'))
 
+    # --- LOGIKA FISIKA & PARAMETER AI ---
     warnings.filterwarnings('ignore')
 
     CYCLES_PER_DAY         = 2
@@ -550,6 +575,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.progress_bar.progress(pct)
             self.status_text.text(f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
 
+
+    # --- DASHBOARD FORECASTING ---
     with st.container():
         st.markdown('<div class="card-tool">', unsafe_allow_html=True)
         st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Fuel Filter Replacement Forecasting: {nav_engine}</h2>', unsafe_allow_html=True)
@@ -563,8 +590,11 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         if st.button("🚀 Run Analysis", key="btn_run"):
             if uploaded_file is not None:
+                # Memanggil fungsi kunci seed di sini
                 reset_seeds(42)
+                
                 st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
+                # Menyimpan nama user yang melakukan analisis di sesi ini
                 st.session_state['analyzer_name'] = st.session_state['employee_name']
                 
                 start_time   = time.time()
@@ -761,6 +791,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     importances   = {}
                     for i in range(2):
                         X_shuff              = X_val_seq.copy()
+                        # --- PERBAIKAN: LOCALIZED RANDOM GENERATOR UNTUK SHUFFLE ---
                         shuffle_rng          = np.random.default_rng(42 + i)
                         shuffle_idx          = shuffle_rng.permutation(len(X_shuff))
                         X_shuff[:, :, i]     = X_val_seq[shuffle_idx, :, i]
@@ -1023,6 +1054,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                     if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                     break
                             
+                            # --- PERBAIKAN: LOCALIZED SEED UNTUK MONTE CARLO ---
+                            # Memberikan seed yang tetap (berdasarkan indeks ESN) agar noise-nya selalu stabil!
                             mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS, seed=(42 + idx))
                             upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                             lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
@@ -1074,6 +1107,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                 st.session_state['results']  = forecast_report
                 st.session_state['engines']  = engines
                 
+                # --- AUTO-SAVE SESSION (PICKLE) AGAR PERSISTENT TERHADAP REFRESH ---
                 try:
                     session_to_save = {
                         "run_time": st.session_state['run_time'],
@@ -1121,6 +1155,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         st.subheader("📋 Executive Fleet Summary")
         df_res.index = np.arange(1, len(df_res) + 1)
         st.dataframe(df_res[['ESN', 'Reg', 'PSI', 'Status', 'Planner Date', 'Date', 'Cycles']].style.map(color_status, subset=['Status']), use_container_width=True)
+        # ----------------------------------------------------
 
         st.markdown("---")
         st.subheader("📈 Single Engine Detail (Multi-Phase Analysis)")
@@ -1217,7 +1252,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         # --- Pindahkan Area Report Details ke Luar Kolom agar Full-Width ---
         st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("<div style='background-color:#f8f9fa; padding:25px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
-        st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments (PDF)</span><br><br>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments</span><br><br>", unsafe_allow_html=True)
         
         with st.form(key="signature_form"):
             col_s1, col_s2, col_s3 = st.columns(3)
@@ -1226,6 +1261,11 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
             
             st.markdown("---")
+            # Fitur Upload Gambar (Mendukung banyak file dan format)
+            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
+            
+            st.markdown("---")
+            # Fitur Notes (Aktif jika dicentang)
             use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
             custom_notes = st.text_area("Tulis catatan Engineer di sini:", disabled=not use_notes)
             
@@ -1233,14 +1273,24 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # Logika iterasi gambar & proteksi maksimal 10MB per file
+        img_bytes_list = []
+        if uploaded_imgs:
+            for img_file in uploaded_imgs:
+                if img_file.size > 10 * 1024 * 1024:
+                    st.error(f"⚠️ Gambar {img_file.name} melebihi 10 MB. Silakan kompres gambar tersebut.")
+                else:
+                    img_bytes_list.append(img_file.getvalue())
+
         notes_text = custom_notes if use_notes else None
 
-        # Memanggil PDF BERSIH DARI KALEIDO
+        # Memanggil PDF dengan semua data baru (menggunakan List bytes gambar)
         pdf_bytes = generate_cnr_pdf(
             res, 
             user_name=input_name, 
             user_phone=input_phone, 
             user_email=input_email,
+            images_bytes_list=img_bytes_list,
             notes=notes_text
         )
 
