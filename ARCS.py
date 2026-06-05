@@ -11,7 +11,7 @@ import warnings
 import random
 
 # ==========================================
-# 1. IMPORT LIBRARY UTAMA (TANPA SUBPROCESS)
+# 1. IMPORT LIBRARY (TANPA SUBPROCESS)
 # ==========================================
 import plotly.graph_objects as go
 import plotly.express as px
@@ -335,7 +335,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
             self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
-    # FUNGSI PDF BERSIH DARI KALEIDO / GAMBAR PLOTLY
     def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", notes=None):
         pdf = PDFReport()
         pdf.alias_nb_pages()
@@ -476,7 +475,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
     PREDICT_STEPS          = 500
     CUSTOM_TARGET          = 14.0
     MAX_Y_LIMIT            = 35.0
-    TAKEOFF_DAMPING_FACTOR = 0.15
     MIN_DRIFT_RATE         = 0.0001
     MC_ITERATIONS          = 50
     PARETO_CONFIDENCE      = 80
@@ -745,7 +743,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     elapsed_str  = str(timedelta(seconds=int(elapsed_time)))
                     eta_str      = str(timedelta(seconds=int(eta_seconds)))
 
-                    status_text.text(f"⚡ Running PGML Hybrid Forecast... ({current_step}/{total_engines}) | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                    status_text.text(f"⚡ Running Physics-Driven AI Forecast... ({current_step}/{total_engines}) | Elapsed: {elapsed_str} | ETA: {eta_str}")
                     progress_bar.progress(50 + int((current_step / total_engines) * 50))
 
                     df_eng_all       = df_by_esn[eng]
@@ -774,9 +772,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     shift_psi = curr_psi = ref_date_val = 0.0
                     ref_date_str = obs_date_str = last_flight_to = last_flight_cr = "-"
                     obs_date_val = None
-
-                    # --- PERBAIKAN LOGIKA: HISTORICAL DRIFT ANCHOR ---
                     hist_drift_per_step = MIN_DRIFT_RATE
+
                     if not df_window.empty:
                         min_idx       = df_window['Pressure_Final'].idxmin()
                         baseline_row  = df_window.loc[min_idx]
@@ -789,10 +786,10 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                         ref_date_str = ref_date_val.strftime('%d-%b-%Y')
                         obs_date_str = obs_date_val.strftime('%d-%b-%Y')
                         
-                        # Menghitung slope kemiringan riil 30 hari terakhir
-                        if recent_data_count > 1 and (obs_date_val - ref_date_val).days > 0:
-                            hist_drift_per_day = shift_psi / (obs_date_val - ref_date_val).days
-                            hist_drift_per_step = max(MIN_DRIFT_RATE, hist_drift_per_day / CYCLES_PER_DAY)
+                        # --- PHYSICS CALIBRATION ---
+                        if recent_data_count > 1 and (obs_date_val - ref_date_val).days > 0 and shift_psi > 0:
+                            daily_psi_drift = shift_psi / (obs_date_val - ref_date_val).days
+                            hist_drift_per_step = max(MIN_DRIFT_RATE, daily_psi_drift / CYCLES_PER_DAY)
 
                         if curr_psi > GE_SOFT_LIMIT and shift_psi > RAPID_SHIFT_THRESHOLD: health_msg = "CRITICAL (CNR Triggered)"
                         elif shift_psi > RAPID_SHIFT_THRESHOLD: health_msg = "WARNING (Rapid Shift)"
@@ -936,47 +933,39 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                             base_curve    = np.empty(PREDICT_STEPS, dtype=np.float64)
                             curr_psi_loop = curr_psi
 
+                            # --- PHYSICS AS THE DRIVER ---
+                            # Menghitung laju penumpukan partikel dasar (Base Deposition)
+                            base_deposition = 0.00002 + (hist_drift_per_step * 0.005)
+
                             curr_epsilon = INITIAL_POROSITY
                             struct_term  = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
                             k_system     = max(curr_psi_loop, 0.1) / struct_term
 
                             for i in range(PREDICT_STEPS):
-                                curr_seq = seq_buf[buf_ptr - WINDOW_SIZE : buf_ptr].reshape(1, WINDOW_SIZE, 2)
-                                next_scaled = float(_gru_step_compiled(curr_seq)[0, 0])
-                                next_p_ai   = _unscale_p(next_scaled)
-
-                                ai_drift = (next_p_ai - curr_psi_loop) * TAKEOFF_DAMPING_FACTOR
-                                
-                                # --- PERBAIKAN LOGIKA 1: SLOPE CLAMPING ---
-                                # Jika filter masih sangat sehat (< 9 PSI), ikat prediksi AI ke tren historis aslinya
-                                if curr_psi_loop < 9.0:
-                                    max_allowed_drift = max(MIN_DRIFT_RATE, hist_drift_per_step * 2.0)
-                                    ai_drift = min(max(ai_drift, MIN_DRIFT_RATE), max_allowed_drift)
-                                else:
-                                    ai_drift = max(ai_drift, MIN_DRIFT_RATE)
-
-                                blocking_effect = ai_drift * (1 / (curr_epsilon + 0.05))
-                                
-                                # Mengurangi laju penutupan pori pada saat filter masih bersih
-                                if curr_psi_loop < 9.0: blocking_effect = min(blocking_effect, 0.00005)
-                                elif curr_psi_loop < 11.0: blocking_effect = min(blocking_effect, 0.0005)
-
-                                curr_epsilon -= blocking_effect
+                                # 1. Murni Hukum Fisika: Ruang kosong (epsilon) mengecil seiring waktu
+                                # Semakin tinggi PSI (filter semakin mampat), kotoran menumpuk semakin agresif
+                                clog_factor = max(1.0, (curr_psi_loop / 6.0)**2) 
+                                curr_epsilon -= (base_deposition * clog_factor)
                                 if curr_epsilon < 0.05: curr_epsilon = 0.05
-
+                                
                                 new_struct_term = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
                                 next_p_physics  = k_system * new_struct_term
                                 physics_drift   = next_p_physics - curr_psi_loop
                                 if physics_drift < MIN_DRIFT_RATE: physics_drift = MIN_DRIFT_RATE
 
-                                # --- PERBAIKAN LOGIKA 2: 30% PHYSICS ANCHOR ---
-                                # Berapapun hasil prediksinya, minimal harus ada 30% campur tangan hukum Fisika
-                                base_trust = 0.3
-                                dynamic_trust  = min(1.0, max(0.0, (curr_psi_loop - 8.0) / 4.0))
-                                trust_physics = max(base_trust, dynamic_trust)
+                                # 2. AI sebagai Navigator (Pemberi Tekstur Fluktuasi)
+                                curr_seq = seq_buf[buf_ptr - WINDOW_SIZE : buf_ptr].reshape(1, WINDOW_SIZE, 2)
+                                next_scaled = float(_gru_step_compiled(curr_seq)[0, 0])
+                                next_p_ai   = _unscale_p(next_scaled)
 
-                                blended_drift  = (1 - trust_physics) * ai_drift + trust_physics * physics_drift
-                                next_p_hybrid  = curr_psi_loop + blended_drift
+                                # Membatasi pengaruh AI hanya sebesar 5% (hanya sebagai noise minor)
+                                ai_fluctuation = (next_p_ai - curr_psi_loop) * 0.05 
+
+                                # 3. Menggabungkan Fisika dan AI
+                                next_p_hybrid = curr_psi_loop + physics_drift + ai_fluctuation
+                                
+                                # Cegah AI menjatuhkan PSI secara drastis (tidak masuk akal secara fisik)
+                                next_p_hybrid = max(next_p_hybrid, curr_psi_loop - 0.05)
 
                                 base_curve[i]   = next_p_hybrid
                                 curr_psi_loop   = next_p_hybrid
@@ -989,7 +978,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
                                 if curr_psi_loop >= MAX_Y_LIMIT:
                                     rem = PREDICT_STEPS - i - 1
-                                    if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
+                                    if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * (MIN_DRIFT_RATE * 10)
                                     break
                             
                             mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS, seed=(42 + idx))
