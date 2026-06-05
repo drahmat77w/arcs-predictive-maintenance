@@ -3,29 +3,18 @@ import sys
 import math
 import json
 import io
-import textwrap
+import tempfile
 import base64
 import pickle
-import tempfile
 from datetime import timedelta, datetime
 import time
 import warnings
 import random
 
 # ==========================================
-# 1. IMPORT LIBRARY (TANPA SUBPROCESS)
+# 1. IMPORT LIBRARY 
+# (Pastikan Anda menggunakan requirements.txt di GitHub)
 # ==========================================
-# Pastikan requirements.txt Anda di GitHub berisi:
-# streamlit
-# pandas
-# numpy
-# tensorflow
-# scikit-learn
-# plotly
-# fpdf2
-# Pillow
-# scipy
-
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.figure_factory as ff
@@ -67,6 +56,7 @@ if 'thesis_metrics' not in st.session_state:
 if 'current_engine' not in st.session_state:
     st.session_state['current_engine'] = None
 
+# --- PERBAIKAN: BULLETPROOF SEED LOCKING ---
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -274,7 +264,6 @@ elif nav_module == "Home":
     """
     components.html(clock_html, height=60)
     
-    # --- FITUR BARU: POSTER DINAMIS ---
     if os.path.exists("poster.png"):
         try:
             st.image("poster.png", use_container_width=True)
@@ -358,7 +347,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
             self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
-    # --- PERBAIKAN: PDF GENERATOR BEBAS CRASH FPDF2 ---
     def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", images_bytes_list=None, notes=None):
         pdf = PDFReport()
         pdf.alias_nb_pages()
@@ -412,7 +400,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "3. Recommendation", ln=True)
         pdf.set_font("Courier", '', 10)
         
-        # Penggantian dari multi_cell ke single cell & write yang 100% aman
         pdf.cell(0, 5, "Dear MS-MCC,", ln=True)
         pdf.write(5, "Please help us create an MSAO to perform the following tasks during the next maintenance or when the CNR is released:")
         pdf.ln(6)
@@ -487,8 +474,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             else: pdf.ln(2)
             pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "6. Notes", ln=True)
             pdf.set_font("Courier", '', 10)
-            pdf.write(5, str(notes).strip())
-            pdf.ln(8)
+            pdf.multi_cell(0, 5, str(notes).strip(), align='L')
+            pdf.ln(5)
 
         if pdf.get_y() > 245: pdf.add_page()
         else: pdf.ln(5)
@@ -496,8 +483,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.set_font("Courier", 'B', 10)
         pdf.cell(0, 5, "DISCLAIMER:", ln=True)
         pdf.set_font("Courier", 'I', 9)
-        pdf.write(5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.")
-        pdf.ln(8)
+        pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.", align='L')
+        pdf.ln(5)
 
         if pdf.get_y() > 220: pdf.add_page()
         else: pdf.ln(5) 
@@ -521,7 +508,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.ln(5)
         pdf.set_text_color(150, 150, 150)
         pdf.set_font("Courier", 'I', 7)
-        pdf.write(4, "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and/or their affiliated companies.")
+        disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and/or their affiliated companies."
+        pdf.multi_cell(0, 4, disclaimer_text, align='L')
         pdf.set_text_color(0, 0, 0) 
 
         return bytes(pdf.output(dest='S').encode('latin-1'))
@@ -557,7 +545,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             pct = (epoch + 1) / self.total_epochs
             self.progress_bar.progress(pct)
             self.status_text.text(f"🧠 Training AI Model... Epoch {epoch + 1}/{self.total_epochs} | Loss: {logs['loss']:.4f}")
-
 
     # --- DASHBOARD FORECASTING ---
     with st.container():
@@ -961,8 +948,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 e_importances = {}
                                 for i in range(2):
                                     X_shuff          = X_eval.copy()
-                                    shuffle_rng_e    = np.random.default_rng(42 + i)
-                                    shuffle_idx      = shuffle_rng_e.permutation(len(X_shuff))
+                                    shuffle_idx      = np.random.permutation(len(X_shuff))
                                     X_shuff[:, :, i] = X_eval[shuffle_idx, :, i]
                                     pred_shuff       = model.predict(X_shuff, verbose=0)
                                     pred_shuff_real  = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -1246,7 +1232,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             </div>
             """, unsafe_allow_html=True)
 
-        # --- Pindahkan Area Report Details ke Luar Kolom agar Full-Width ---
         st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("<div style='background-color:#f8f9fa; padding:25px; border-radius:8px; border:1px solid #e9ecef; margin-bottom:15px;'>", unsafe_allow_html=True)
         st.markdown("<span style='color:#002561; font-weight:bold; font-size:16px; text-transform:uppercase;'>📝 Report Details & Adjustments (PDF)</span><br><br>", unsafe_allow_html=True)
@@ -1258,6 +1243,9 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
             
             st.markdown("---")
+            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
+            
+            st.markdown("---")
             use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
             custom_notes = st.text_area("Tulis catatan Engineer di sini:", disabled=not use_notes)
             
@@ -1265,9 +1253,17 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # Proses Data PDF
+        img_bytes_list = []
+        if uploaded_imgs:
+            for img_file in uploaded_imgs:
+                if img_file.size > 10 * 1024 * 1024:
+                    st.error(f"⚠️ Gambar {img_file.name} melebihi 10 MB. Silakan kompres gambar tersebut.")
+                else:
+                    img_bytes_list.append(img_file.getvalue())
+
         notes_text = custom_notes if use_notes else None
 
-        # Memanggil PDF BERSIH DARI KALEIDO
         pdf_bytes = generate_cnr_pdf(
             res, 
             user_name=input_name, 
