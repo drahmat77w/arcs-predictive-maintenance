@@ -264,6 +264,15 @@ elif nav_module == "Home":
     """
     components.html(clock_html, height=60)
     
+    # --- FITUR BARU: POSTER DINAMIS ---
+    if os.path.exists("poster.png"):
+        try:
+            st.image("poster.png", use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+        except Exception:
+            pass # Abaikan jika gambar korup agar tidak merusak UI
+    # ----------------------------------
+    
     st.markdown(f'<h2 style="color: #002561; border-bottom: 2px solid #005eb8; margin-top: 0;">Executive Overview: {nav_engine}</h2>', unsafe_allow_html=True)
     
     if st.session_state.get('results') is not None:
