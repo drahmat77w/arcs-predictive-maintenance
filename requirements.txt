@@ -4,6 +4,6 @@ numpy
 tensorflow-cpu
 scikit-learn
 plotly
-fpdf
+fpdf2
 scipy
 openpyxl
