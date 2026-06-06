@@ -1,53 +1,29 @@
 import os
 import sys
-import subprocess
 import tempfile
 import math
 import json
-
-# ==========================================
-# 1. AUTO-FIX: INSTALL LIBRARY OTOMATIS
-# ==========================================
-try:
-    import plotly.graph_objects as go
-    import plotly.express as px
-    import plotly.figure_factory as ff
-    from plotly.subplots import make_subplots
-    from sklearn.ensemble import IsolationForest
-    from sklearn.metrics import (
-        mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
-        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
-    )
-    from tensorflow.keras.callbacks import EarlyStopping
-    from fpdf import FPDF
-    import kaleido
-except ImportError:
-    print("⚠️ Menginstall library tambahan...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install",
-                           "plotly", "scikit-learn", "fpdf", "kaleido", "scipy"])
-    import plotly.graph_objects as go
-    import plotly.express as px
-    import plotly.figure_factory as ff
-    from plotly.subplots import make_subplots
-    from sklearn.ensemble import IsolationForest
-    from sklearn.metrics import (
-        mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
-        accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
-    )
-    from tensorflow.keras.callbacks import EarlyStopping
-    from fpdf import FPDF
-    import kaleido
-    print("✅ Library berhasil diinstall!")
+import random
+import time
+import warnings
+from datetime import timedelta, datetime
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
-from datetime import timedelta, datetime
-import time
-import warnings
-import random
+from sklearn.ensemble import IsolationForest
+from sklearn.metrics import (
+    mean_squared_error, mean_absolute_error, mean_absolute_percentage_error,
+    accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
+)
+from tensorflow.keras.callbacks import EarlyStopping
+import plotly.graph_objects as go
+import plotly.express as px
+import plotly.figure_factory as ff
+from plotly.subplots import make_subplots
+from fpdf import FPDF
 
 # --- 2. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="ARCS | Enterprise AI", layout="wide", page_icon="✈️")
@@ -73,84 +49,34 @@ def reset_seeds(seed=42):
 # ==========================================
 # ⚡ OPT-1  STRIDE-TRICKS SEQUENCE BUILDER
 # ==========================================
-# WHAT  Replaces the triple nested Python loop that builds (X, y) training
-#       pairs from sliding windows.
-# WHY   Each list.append() allocates a new Python object.  N=5000 samples,
-#       W=60 window, F=2 features → 5000 small heap allocs + O(N·W·F) copies.
-#       np.lib.stride_tricks.as_strided creates the full view in O(1) by
-#       reusing the underlying buffer; the final .copy() materialises one
-#       contiguous block — all work happens in C, not Python.
-# GAIN  Typically 10-50× faster sequence construction; memory footprint halved.
-# ==========================================
 def build_sequences_strided(arr2d: np.ndarray, window_size: int) -> np.ndarray:
-    """
-    Return shape (N - window_size, window_size, F) sliding-window array.
-    Uses stride tricks so no Python-level loop is required.
-
-    Parameters
-    ----------
-    arr2d       : 2-D contiguous numpy array of shape (N, F)
-    window_size : integer window length W
-
-    Returns
-    -------
-    Contiguous numpy array of shape (N-W, W, F)
-    """
     N, F = arr2d.shape
     out_len = N - window_size
     if out_len <= 0:
         return np.empty((0, window_size, F), dtype=arr2d.dtype)
 
     shape   = (out_len, window_size, F)
-    # axis-0 stride: advance one *sample*  (= one row of arr2d)
-    # axis-1 stride: advance one *timestep* inside the window (same as one row)
-    # axis-2 stride: advance one *feature*  (= one column byte-stride)
     strides = (arr2d.strides[0], arr2d.strides[0], arr2d.strides[1])
     view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
-    return view.copy()   # materialise a safe, C-contiguous copy
+    return view.copy()
 
 
 # ==========================================
 # ⚡ OPT-2  VECTORISED MONTE CARLO
 # ==========================================
-# WHAT  Replaces the MC_ITERATIONS × PREDICT_STEPS = 50 × 500 = 25 000-step
-#       double Python for-loop with a single NumPy broadcast.
-# WHY   CPython loops are ~100-200 ns each; 25 000 iterations ≈ 2.5-5 ms of
-#       pure interpreter overhead per engine, not counting NumPy dispatch.
-#       A broadcast operates entirely in BLAS/C and is effectively O(1) in
-#       Python while doing the same arithmetic in cache-friendly order.
-# MATH  By induction on the original loop body:
-#         sim[k, 0] = curr_psi + noise[k]
-#         sim[k, t] = curr_psi + noise[k] + drift_rf[k] * (base_curve[t] - base_curve[0])
-#       where the (base_curve[t] - base_curve[0]) term accumulates all step
-#       drifts from step 1 to t — identical to cumulative telescoping sum.
-# GAIN  ~50-100× faster Monte Carlo; result is numerically identical.
-# ==========================================
 def vectorized_monte_carlo(curr_psi: float,
                             base_curve: np.ndarray,
                             n_iter: int,
                             n_steps: int) -> np.ndarray:
-    """
-    Vectorised Monte Carlo uncertainty quantification.
-
-    Returns
-    -------
-    np.ndarray of shape (n_iter, n_steps)  — same semantics as the original
-    mc_results list-of-lists.
-    """
     base_arr     = base_curve[:n_steps]
-    # Delta from first forecast point; delta[0] = 0 guarantees sim[k,0] = curr_psi + noise[k]
-    base_delta   = base_arr - base_arr[0]                        # (n_steps,)
-
-    start_noises = np.random.normal(0.0,  0.05, n_iter)          # (n_iter,)
-    drift_rfs    = np.random.normal(1.0,  0.15, n_iter)          # (n_iter,)
-
-    # Shape: (n_iter, 1)  +  (n_iter, 1) * (1, n_steps)  →  (n_iter, n_steps)
+    base_delta   = base_arr - base_arr[0]
+    start_noises = np.random.normal(0.0,  0.05, n_iter)
+    drift_rfs    = np.random.normal(1.0,  0.15, n_iter)
     return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
 
-# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT (unchanged) ---
-def generate_cnr_pdf(res, fig_bytes):
+# --- FUNGSI GENERATE CUSTOM PRE-INFO PDF REPORT (Dioptimasi untuk Cloud: Tanpa Kaleido) ---
+def generate_cnr_pdf(res):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Courier", 'B', 16)
@@ -225,25 +151,16 @@ def generate_cnr_pdf(res, fig_bytes):
         pdf.cell(40, 6, str(row['Value at Obs. Date']), border=1, align='C')
         pdf.cell(40, 6, str(row['Overall Change']),     border=1, align='C', ln=True)
 
-    pdf.ln(5)
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-        tmp.write(fig_bytes)
-        tmp_path = tmp.name
-
-    pdf.image(tmp_path, x=10, w=190)
-    os.unlink(tmp_path)
-
     pdf.ln(10)
     pdf.set_text_color(160, 160, 160)
     pdf.set_font("Courier", 'I', 8)
-    pdf.cell(0, 5, "ARCS Dashboard Generated.", ln=True, align='C')
+    pdf.cell(0, 5, "ARCS Dashboard Generated. (Cloud PDF Chart Rendering Disabled)", ln=True, align='C')
     pdf.set_text_color(0, 0, 0)
 
     return pdf.output(dest='S').encode('latin-1')
 
 
-# --- 3. CSS TAMPILAN (unchanged) ---
+# --- 3. CSS TAMPILAN ---
 st.markdown("""
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f4f4; color: #333; }
@@ -286,7 +203,7 @@ st.markdown("""
     </header>
 """, unsafe_allow_html=True)
 
-# --- 4. LOGIKA FISIKA & PARAMETER AI (unchanged) ---
+# --- 4. LOGIKA FISIKA & PARAMETER AI ---
 warnings.filterwarnings('ignore')
 
 CYCLES_PER_DAY         = 2
@@ -306,7 +223,6 @@ MIN_DATA_POINTS_30D    = 10
 RAPID_SHIFT_THRESHOLD  = 3.0
 GE_SOFT_LIMIT          = 14.0
 LOW_PRESSURE_SAFEGUARD = 10.0
-
 
 def physics_degradation_model(start_psi, drift_rate, steps):
     preds = []
@@ -358,9 +274,6 @@ with st.container():
             progress_bar = st.progress(0)
             status_text  = st.empty()
 
-            # ------------------------------------------------------------------
-            # DATA LOADING  (unchanged)
-            # ------------------------------------------------------------------
             status_text.text("📂 Reading Data...")
 
             if uploaded_file.name.endswith('.csv'):
@@ -374,17 +287,14 @@ with st.container():
             df['Phase']                    = df['Phase'].astype(str).str.strip().str.upper()
             df['Date']                     = pd.to_datetime(df['Date'], errors='coerce')
             df['ESN']                      = df['ESN'].astype(str).str.replace('.0', '', regex=False)
-            df['Pressure_Final']           = pd.to_numeric(df['Pressure_Raw'],              errors='coerce') / 10000.0
-            df['Pressure_Smoothed_Final']  = pd.to_numeric(df['Pressure_Smoothed_Source'],  errors='coerce') / 10000.0
+            df['Pressure_Final']           = pd.to_numeric(df['Pressure_Raw'],             errors='coerce') / 10000.0
+            df['Pressure_Smoothed_Final']  = pd.to_numeric(df['Pressure_Smoothed_Source'], errors='coerce') / 10000.0
 
             df           = df.dropna(subset=['Pressure_Final', 'ESN', 'Date']).sort_values(['ESN', 'Date'])
             df_takeoff   = df[df['Phase'] == 'TAKEOFF'].copy()
             dataset_latest_date = df['Date'].max()
             progress_bar.progress(10)
 
-            # ------------------------------------------------------------------
-            # SEGMENT DETECTION  (unchanged)
-            # ------------------------------------------------------------------
             status_text.text("🛠️ Preprocessing & Time-Based Splitting...")
 
             engines          = sorted(df['ESN'].unique())
@@ -415,7 +325,6 @@ with st.container():
 
             df_train_all = pd.concat(processed_frames)
 
-            # Time-based 80/20 split (unchanged)
             train_list, val_list = [], []
             for eng in engines:
                 eng_df     = df_train_all[df_train_all['ESN'] == eng].sort_values('Date')
@@ -426,7 +335,6 @@ with st.container():
             df_train_set = pd.concat(train_list)
             df_val_set   = pd.concat(val_list)
 
-            # Scaler fit on train set (unchanged)
             scaler_p = MinMaxScaler(feature_range=(0, 1))
             scaler_a = MinMaxScaler(feature_range=(0, 1))
             scaler_p.fit(df_train_set[['Pressure_Final']])
@@ -439,17 +347,6 @@ with st.container():
             df_val_set['P_Scaled']     = scaler_p.transform(df_val_set[['Pressure_Final']])
             df_val_set['Age_Scaled']   = scaler_a.transform(df_val_set[['Filter_Age']])
 
-            # ==========================================
-            # ⚡ OPT-3  PRE-FILTER DATAFRAMES ONCE
-            # ==========================================
-            # WHAT  Build per-engine, per-phase DataFrame dicts outside the
-            #       engine forecast loop.
-            # WHY   The original code ran df[df['ESN'] == eng] and phase filter
-            #       multiple times inside the loop. Each boolean mask scan is
-            #       O(N_total_rows).  With N engines this becomes O(N² × phases).
-            #       Pre-filtering reduces this to O(N × phases) done once.
-            # GAIN  Linear instead of quadratic DataFrame scanning across engines.
-            # ==========================================
             status_text.text("🗂️ Pre-filtering engine DataFrames...")
 
             df_by_esn         = {eng: df[df['ESN'] == eng].copy()             for eng in engines}
@@ -462,16 +359,12 @@ with st.container():
                 df_cruise_by_esn[eng]  = d[d['Phase'] == 'CRUISE' ].sort_values('Date').reset_index(drop=True)
                 df_climb_by_esn[eng]   = d[d['Phase'] == 'CLIMB'  ].sort_values('Date').reset_index(drop=True)
 
-            # Convenience lookup for the CNR table inner loop
             _phase_lookup = {
                 'CRUISE':  df_cruise_by_esn,
                 'TAKEOFF': df_takeoff_by_esn,
                 'CLIMB':   df_climb_by_esn,
             }
 
-            # ==========================================
-            # ⚡ OPT-1 APPLIED: Validation sequences via stride tricks
-            # ==========================================
             X_val_parts, y_val_parts = [], []
             for eng in df_val_set['ESN'].unique():
                 eng_data = df_val_set[df_val_set['ESN'] == eng]
@@ -490,9 +383,6 @@ with st.container():
                 X_val_seq = np.array([])
                 y_val_seq = np.array([])
 
-            # ------------------------------------------------------------------
-            # MODEL LOAD / TRAIN
-            # ------------------------------------------------------------------
             model          = None
             train_time_min = 0.0
             history_data   = None
@@ -509,9 +399,6 @@ with st.container():
             else:
                 status_text.text("🧠 Training Neural Network from Scratch...")
 
-                # ==========================================
-                # ⚡ OPT-1 APPLIED: Training sequences via stride tricks
-                # ==========================================
                 X_parts, y_parts = [], []
                 for eng in df_train_set['ESN'].unique():
                     eng_data = df_train_set[df_train_set['ESN'] == eng]
@@ -556,19 +443,6 @@ with st.container():
                     with open(HISTORY_PATH, 'w') as f:
                         json.dump(history_data, f)
 
-            # ==========================================
-            # ⚡ OPT-4  tf.function COMPILED INFERENCE
-            # ==========================================
-            # WHAT  Wraps the per-step model call in a TF-compiled graph function.
-            # WHY   Calling model(x, training=False) naively re-enters Python's
-            #       eager executor for every one of the 500 PGML loop steps per
-            #       engine.  tf.function traces the computation graph once on the
-            #       first call and then dispatches directly to CUDA/CPU kernels,
-            #       bypassing Python overhead on every subsequent call.
-            # GAIN  Typically 2-5× faster per-step inference, especially on GPU.
-            #       reduce_retracing=True prevents re-tracing when input shapes
-            #       are the same (they always are here: (1, 60, 2)).
-            # ==========================================
             _gru_step_compiled = None
             if model is not None:
                 _gru_step_compiled = tf.function(
@@ -576,33 +450,15 @@ with st.container():
                     reduce_retracing=True
                 )
 
-            # ==========================================
-            # ⚡ OPT-5  INLINE SCALER ARITHMETIC
-            # ==========================================
-            # WHAT  Extract MinMaxScaler internal constants once; replace
-            #       scaler.transform([[x]])[0,0] / inverse_transform calls in
-            #       the 500-step PGML loop with direct float arithmetic.
-            # WHY   Each scaler call creates a (1,1) numpy array, applies bounds
-            #       checking, and indexes into a 2D result — that's ~5-10 μs of
-            #       overhead per call.  Over 500 steps × N engines this adds up.
-            #       The math is a simple affine transform: x_s = x * scale + min_
-            # NOTE  Numerically identical to sklearn's implementation.
-            #       Verified: _unscale_p(_scale_p(x)) == x  for all valid x.
-            # ==========================================
-            _p_scale   = float(scaler_p.scale_[0])   # 1 / (X_max - X_min)
-            _p_min_off = float(scaler_p.min_[0])      # -X_min * scale  (sklearn's internal offset)
+            _p_scale   = float(scaler_p.scale_[0])
+            _p_min_off = float(scaler_p.min_[0])
 
             def _scale_p(x: float) -> float:
-                """Equivalent to scaler_p.transform([[x]])[0, 0]"""
                 return x * _p_scale + _p_min_off
 
             def _unscale_p(x_s: float) -> float:
-                """Equivalent to scaler_p.inverse_transform([[x_s]])[0, 0]"""
                 return (x_s - _p_min_off) / _p_scale
 
-            # ------------------------------------------------------------------
-            # 🎓 ACADEMIC THESIS EVALUATION — GLOBAL  (unchanged logic)
-            # ------------------------------------------------------------------
             status_text.text("🎓 Calculating Global Academic Metrics (Thesis Requirement)...")
 
             if len(X_val_seq) > 0 and model is not None:
@@ -615,9 +471,9 @@ with st.container():
                 g_mape    = mean_absolute_percentage_error(y_val_real, y_pred_real) * 100
                 g_err_pct = (np.mean(np.abs(y_val_real - y_pred_real)) / np.mean(y_val_real)) * 100
 
-                thresh       = 10.0
-                y_val_class  = (y_val_real  >= thresh).astype(int)
-                y_pred_class = (y_pred_real >= thresh).astype(int)
+                thresh        = 10.0
+                y_val_class   = (y_val_real  >= thresh).astype(int)
+                y_pred_class  = (y_pred_real >= thresh).astype(int)
 
                 g_acc  = accuracy_score (y_val_class, y_pred_class)
                 g_prec = precision_score(y_val_class, y_pred_class, zero_division=0)
@@ -659,9 +515,6 @@ with st.container():
                     'importances': importances, 'cv_scores': cv_scores
                 }
 
-            # ------------------------------------------------------------------
-            # ⚡ OPTIMISED OPERATIONAL HYBRID FORECAST (PGML) — ENGINE LOOP
-            # ------------------------------------------------------------------
             forecast_report = []
             total_engines   = len(engines)
 
@@ -678,16 +531,12 @@ with st.container():
                     f"| Elapsed: {elapsed_str} | ETA: {eta_str}")
                 progress_bar.progress(50 + int((current_step / total_engines) * 50))
 
-                # ==========================================
-                # ⚡ OPT-3 APPLIED: Use pre-filtered DataFrames
-                # ==========================================
                 df_eng_all       = df_by_esn[eng]
                 df_eng_takeoff   = df_takeoff_by_esn[eng]
                 df_cruise        = df_cruise_by_esn[eng]
                 df_climb         = df_climb_by_esn[eng]
                 eng_processed_data = processed_by_esn[eng]
 
-                # Aircraft registration  (unchanged)
                 aircraft_reg   = "N/A"
                 possible_regs  = df_eng_all['Aircraft_ID'].dropna() if 'Aircraft_ID' in df_eng_all.columns else pd.Series([], dtype=str)
                 if not possible_regs.empty:
@@ -770,7 +619,6 @@ with st.container():
                 if "WARNING" in health_msg and cruise_trending_up:
                     health_msg = "CRITICAL (Multi-Phase Confirmed)"
 
-                # CNR table (unchanged logic, uses pre-filtered dicts)
                 cnr_table_data = []
                 for ph in ['CRUISE', 'TAKEOFF', 'CLIMB']:
                     df_ph        = _phase_lookup[ph][eng]
@@ -794,7 +642,6 @@ with st.container():
                             "Overall Change":     "-"
                         })
 
-                # Initialise forecast outputs
                 pred_date_str = planner_date_str = "-"
                 cycles_left = hours_left = 9999
                 final_curve = upper = lower = []
@@ -803,9 +650,6 @@ with st.container():
 
                 eng_thesis_dict = None
 
-                # ------------------------------------------------------------------
-                # ⚡ OPT-1 APPLIED: Engine-specific eval — stride tricks for X_eval
-                # ------------------------------------------------------------------
                 if len(eng_processed_data) >= WINDOW_SIZE + 5 and model is not None:
                     try:
                         split_idx_eng  = int(len(eng_processed_data) * 0.8)
@@ -813,12 +657,11 @@ with st.container():
                         eval_data      = eng_processed_data.iloc[test_start_idx:].copy()
 
                         if len(eval_data) > WINDOW_SIZE:
-                            # Single hstack + stride tricks replaces O(N) Python loop
                             eval_arr     = np.hstack([
                                 eval_data[['P_Scaled']].values,
                                 eval_data[['Age_Scaled']].values
-                            ])                                            # (N, 2)
-                            X_eval       = build_sequences_strided(eval_arr, WINDOW_SIZE)  # (N-W, W, 2)
+                            ])
+                            X_eval       = build_sequences_strided(eval_arr, WINDOW_SIZE)
                             actuals_real = eval_data['Pressure_Final'].values[WINDOW_SIZE:]
 
                             preds_scaled  = model.predict(X_eval, verbose=0)
@@ -834,7 +677,7 @@ with st.container():
                             e_mape    = mean_absolute_percentage_error(actuals_real, preds_real) * 100 if mean_actual > 0 else 0
                             e_err_pct = (np.mean(np.abs(actuals_real - preds_real)) / mean_actual) * 100 if mean_actual > 0 else 0
 
-                            thresh        = 10.0
+                            thresh         = 10.0
                             y_val_class_e  = (actuals_real >= thresh).astype(int)
                             y_pred_class_e = (preds_real   >= thresh).astype(int)
 
@@ -886,9 +729,6 @@ with st.container():
                     except Exception:
                         pass
 
-                # ------------------------------------------------------------------
-                # FORECAST BRANCHING  (unchanged structural logic)
-                # ------------------------------------------------------------------
                 if insufficient_data or is_parked or "CRITICAL" in health_msg:
                     final_curve = np.array([curr_psi] * PREDICT_STEPS)
                     upper = lower = final_curve
@@ -899,59 +739,30 @@ with st.container():
                 else:
                     if len(eng_processed_data) >= WINDOW_SIZE and model is not None and _gru_step_compiled is not None:
                         last_seg_data   = eng_processed_data.tail(WINDOW_SIZE).copy()
-                        last_p_scaled   = last_seg_data[['P_Scaled']].values    # (W, 1)
-                        last_age_scaled = last_seg_data[['Age_Scaled']].values  # (W, 1)
+                        last_p_scaled   = last_seg_data[['P_Scaled']].values
+                        last_age_scaled = last_seg_data[['Age_Scaled']].values
 
-                        # ==========================================
-                        # ⚡ OPT-6  PRE-ALLOCATED ROLLING BUFFER
-                        # ==========================================
-                        # WHAT  Replace the per-step np.concatenate that shifts
-                        #       the GRU's input window with a static array and a
-                        #       sliding read pointer.
-                        # WHY   np.concatenate((seq[:, 1:, :], new_step), axis=1)
-                        #       allocates a brand-new (1, 60, 2) array on every
-                        #       iteration — that is 500 heap allocations per engine,
-                        #       each followed by two memcpy ops (60-1 old values +
-                        #       1 new value).  A pre-allocated buffer of length
-                        #       WINDOW_SIZE + PREDICT_STEPS lets us write one value
-                        #       and read a slice — no allocation, no copy.
-                        # GAIN  ~500 fewer malloc/free cycles + reduced GC pressure;
-                        #       combined with OPT-4 (tf.function) this is the most
-                        #       impactful change for per-engine forecast time.
-                        # ==========================================
                         buf_total = WINDOW_SIZE + PREDICT_STEPS
                         seq_buf   = np.empty((buf_total, 2), dtype=np.float64)
                         seq_buf[:WINDOW_SIZE] = np.hstack([last_p_scaled, last_age_scaled])
                         buf_ptr = WINDOW_SIZE
 
-                        # Pre-allocate base_curve array; fill as we go
                         base_curve    = np.empty(PREDICT_STEPS, dtype=np.float64)
                         curr_psi_loop = curr_psi
 
-                        # Kozeny-Carman initialisation (physics unchanged)
                         curr_epsilon = INITIAL_POROSITY
                         struct_term  = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
                         k_system     = max(curr_psi_loop, 0.1) / struct_term
 
-                        # ==========================================
-                        # ⚡ OPT-4 + OPT-5 + OPT-6 APPLIED inside loop
-                        # ==========================================
                         for i in range(PREDICT_STEPS):
-                            # OPT-6: slice from buffer — zero allocation
                             curr_seq = seq_buf[buf_ptr - WINDOW_SIZE : buf_ptr].reshape(1, WINDOW_SIZE, 2)
-
-                            # OPT-4: compiled TF inference (graph-mode, no Python overhead)
                             next_scaled = float(_gru_step_compiled(curr_seq)[0, 0])
-
-                            # OPT-5: inline inverse-transform — no scaler object call
                             next_p_ai   = _unscale_p(next_scaled)
 
-                            # --- AI drift  (physics unchanged) ---
                             ai_drift = (next_p_ai - curr_psi_loop) * TAKEOFF_DAMPING_FACTOR
                             if ai_drift < MIN_DRIFT_RATE:
                                 ai_drift = MIN_DRIFT_RATE
 
-                            # --- Kozeny-Carman physics  (unchanged) ---
                             blocking_effect = ai_drift * (1 / (curr_epsilon + 0.05))
                             if curr_psi_loop < 9.0:
                                 blocking_effect = min(blocking_effect, 0.0001)
@@ -968,7 +779,6 @@ with st.container():
                             if physics_drift < MIN_DRIFT_RATE:
                                 physics_drift = MIN_DRIFT_RATE
 
-                            # --- Dynamic Trust Blending  (unchanged) ---
                             trust_physics  = min(1.0, max(0.0, (curr_psi_loop - 9.0) / 4.0))
                             blended_drift  = (1 - trust_physics) * ai_drift + trust_physics * physics_drift
                             next_p_hybrid  = curr_psi_loop + blended_drift
@@ -976,7 +786,6 @@ with st.container():
                             base_curve[i]   = next_p_hybrid
                             curr_psi_loop   = next_p_hybrid
 
-                            # OPT-5: inline transform; OPT-6: write into buffer — no allocation
                             next_scaled_clamped        = _scale_p(curr_psi_loop)
                             next_age                   = seq_buf[buf_ptr - 1, 1] + 0.005
                             seq_buf[buf_ptr, 0]        = next_scaled_clamped
@@ -984,22 +793,17 @@ with st.container():
                             buf_ptr                   += 1
 
                             if curr_psi_loop >= MAX_Y_LIMIT:
-                                # Fill remainder — equivalent to original while-loop
                                 rem = PREDICT_STEPS - i - 1
                                 if rem > 0:
                                     base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                 break
 
-                        # ==========================================
-                        # ⚡ OPT-2 APPLIED: Vectorised Monte Carlo
-                        # ==========================================
                         mc_results  = vectorized_monte_carlo(
                             curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
                         upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                         lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
                         final_curve = np.mean(mc_results, axis=0)
 
-                        # Threshold crossing logic (unchanged)
                         cross_idx = np.argmax(upper >= CUSTOM_TARGET)
 
                         if upper[cross_idx] >= CUSTOM_TARGET:
@@ -1030,7 +834,6 @@ with st.container():
                         final_curve = np.array([curr_psi] * PREDICT_STEPS)
                         upper = lower = final_curve
 
-                # Health refinement (unchanged)
                 if not is_parked and not insufficient_data and "CRITICAL" not in health_msg:
                     if is_safe_zone:
                         if "WARNING" not in health_msg:
@@ -1089,7 +892,7 @@ with st.container():
 
 
 # ==========================================
-# --- 6. TAMPILAN HASIL OPERASIONAL (unchanged) ---
+# --- 6. TAMPILAN HASIL OPERASIONAL ---
 # ==========================================
 if st.session_state.get('results') is not None:
     results      = st.session_state['results']
@@ -1224,32 +1027,14 @@ if st.session_state.get('results') is not None:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        try:
-            df_to_3m  = df_to[df_to['Date'] >= (last_date - timedelta(days=90))]
-            fig_pdf   = go.Figure()
-            if not res['Is Parked'] and "INSUFFICIENT" not in res['Status']:
-                fig_pdf.add_trace(go.Scatter(x=future_dates, y=upper, mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip'))
-                fig_pdf.add_trace(go.Scatter(x=future_dates, y=lower, mode='lines', fill='tonexty', fillcolor='rgba(255,165,0,0.2)', line=dict(width=0), name='Confidence', hoverinfo='skip'))
-                fig_pdf.add_trace(go.Scatter(x=future_dates, y=final_curve, mode='lines', name='Forecast', line=dict(color='#dc3545', width=2, dash='dash')))
-            fig_pdf.add_trace(go.Scatter(x=df_to_3m['Date'], y=df_to_3m['Pressure_Final'], mode='lines', name='Takeoff History (3 Months)', line=dict(color='black', width=1.5)))
-            x_range_pdf = [df_to_3m['Date'].min() if not df_to_3m.empty else last_date - timedelta(days=90), future_dates[-1]]
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[14]*2, mode='lines', line=dict(color='rgba(0,123,255,0.4)',  dash='solid'), name='Limit 14 PSI'))
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[18]*2, mode='lines', line=dict(color='rgba(255,193,7,0.4)',  dash='solid'), name='Warning 18 PSI'))
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[27]*2, mode='lines', line=dict(color='rgba(253,126,20,0.4)', dash='solid'), name='Replace Next Flight 27 PSI'))
-            fig_pdf.add_trace(go.Scatter(x=x_range_pdf, y=[33]*2, mode='lines', line=dict(color='rgba(0,0,0,0.4)',      dash='solid'), name='Bypass 33 PSI'))
-            fig_pdf.update_layout(title="Phase: TAKEOFF (Last 3 Months & Forecast)", height=350,
-                                  margin=dict(l=20, r=20, t=40, b=20), hovermode="x unified",
-                                  template="plotly_white", yaxis=dict(range=[0, 35], title="PSID"))
-            fig_bytes_pdf = fig_pdf.to_image(format="png", width=900, height=350, engine="kaleido")
-            pdf_bytes     = generate_cnr_pdf(res, fig_bytes_pdf)
-            st.download_button(
-                label="📄 Download Pre-Info Report (PDF)",
-                data=pdf_bytes,
-                file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
-                mime="application/pdf"
-            )
-        except Exception:
-            st.warning("⚠️ Fitur PDF butuh rendering engine (Kaleido). Silakan klik sekali lagi atau tunggu sesaat.")
+        # Download PDF Logic Diubah Tanpa Kaleido
+        pdf_bytes     = generate_cnr_pdf(res)
+        st.download_button(
+            label="📄 Download Pre-Info Report (PDF)",
+            data=pdf_bytes,
+            file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
+            mime="application/pdf"
+        )
 
         st.markdown("<br><b style='color:#002561;'>Parameter Description (30-Day Shift)</b>", unsafe_allow_html=True)
         date_info = res['Dates Info']
@@ -1263,7 +1048,7 @@ if st.session_state.get('results') is not None:
 
 
 # ==========================================
-# --- 7. TAMPILAN HASIL AKADEMIK — GLOBAL (unchanged) ---
+# --- 7. TAMPILAN HASIL AKADEMIK — GLOBAL ---
 # ==========================================
 if st.session_state.get('thesis_metrics') is not None:
     st.markdown("<br><br>", unsafe_allow_html=True)
@@ -1363,7 +1148,7 @@ if st.session_state.get('thesis_metrics') is not None:
 
 
 # ==========================================
-# --- 8. ENGINE-SPECIFIC ACADEMIC EVALUATION (unchanged) ---
+# --- 8. ENGINE-SPECIFIC ACADEMIC EVALUATION ---
 # ==========================================
 if st.session_state.get('results') is not None:
     results_ref       = st.session_state['results']
