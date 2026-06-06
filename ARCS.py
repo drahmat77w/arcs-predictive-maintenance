@@ -340,6 +340,26 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             super().__init__()
             self.utc_now = datetime.utcnow().strftime('%d %b %Y %H:%M:%S')
 
+        @staticmethod
+        def _safe_pdf_text(value):
+            """
+            PyFPDF/fpdf==1.7.2 memakai encoding Latin-1.
+            Karakter di luar Latin-1, misalnya emoji atau smart quotes,
+            bisa membuat proses output PDF gagal atau file hasil download rusak.
+            """
+            if value is None:
+                return ""
+            return str(value).encode("latin-1", "replace").decode("latin-1")
+
+        def cell(self, w, h=0, txt='', border=0, ln=0, align='', fill=False, link=''):
+            return super().cell(w, h, self._safe_pdf_text(txt), border, ln, align, fill, link)
+
+        def write(self, h, txt='', link=''):
+            return super().write(h, self._safe_pdf_text(txt), link)
+
+        def multi_cell(self, w, h, txt='', border=0, align='J', fill=False):
+            return super().multi_cell(w, h, self._safe_pdf_text(txt), border, align, fill)
+
         def footer(self):
             self.set_y(-15)
             self.set_font("Courier", 'I', 7)
@@ -496,8 +516,12 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.ln(3)
 
         if os.path.exists("GMF.png"):
-            pdf.image("GMF.png", x=pdf.get_x(), w=40)
-            pdf.ln(3)
+            try:
+                pdf.image("GMF.png", x=pdf.get_x(), w=40)
+                pdf.ln(3)
+            except Exception:
+                # Jangan gagalkan PDF hanya karena file logo rusak/tidak kompatibel.
+                pdf.ln(5)
         else: pdf.ln(5) 
 
         pdf.set_font("Courier", 'I', 10)
@@ -511,7 +535,10 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.write(4, "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and/or their affiliated companies.")
         pdf.set_text_color(0, 0, 0) 
 
-        return pdf.output()
+        pdf_payload = pdf.output(dest="S")
+        if isinstance(pdf_payload, str):
+            return pdf_payload.encode("latin-1")
+        return bytes(pdf_payload)
 
     # --- LOGIKA FISIKA & PARAMETER AI ---
     warnings.filterwarnings('ignore')
@@ -1243,7 +1270,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
             
             st.markdown("---")
-            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'svg'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF.")
+            uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF. Format SVG tidak didukung oleh Pillow/FPDF pada deployment ini.")
             
             st.markdown("---")
             use_notes = st.checkbox("➕ Tambahkan Custom Notes Khusus", value=False)
@@ -1263,20 +1290,28 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         notes_text = custom_notes if use_notes else None
 
-        pdf_bytes = generate_cnr_pdf(
-            res, 
-            user_name=input_name, 
-            user_phone=input_phone, 
-            user_email=input_email,
-            images_bytes_list=img_bytes_list,
-            notes=notes_text
-        )
+        try:
+            pdf_bytes = generate_cnr_pdf(
+                res, 
+                user_name=input_name, 
+                user_phone=input_phone, 
+                user_email=input_email,
+                images_bytes_list=img_bytes_list,
+                notes=notes_text
+            )
+        except Exception as e:
+            st.error(f"PDF gagal dibuat: {e}")
+            st.stop()
+
+        if not isinstance(pdf_bytes, (bytes, bytearray)) or not bytes(pdf_bytes).startswith(b"%PDF"):
+            st.error("PDF gagal dibuat: output bukan file PDF valid.")
+            st.stop()
 
         _, col_btn, _ = st.columns([1, 2, 1])
         with col_btn:
             st.download_button(
                 label="📄 Download Pre-Info Report (PDF)",
-                data=pdf_bytes,
+                data=bytes(pdf_bytes),
                 file_name=f"PreInfo_{selected_esn}_{datetime.now().strftime('%d%b%Y')}.pdf",
                 mime="application/pdf",
                 use_container_width=True
