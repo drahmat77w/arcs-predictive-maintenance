@@ -511,7 +511,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.write(4, "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and/or their affiliated companies.")
         pdf.set_text_color(0, 0, 0) 
 
-        return bytes(pdf.output())
+        return pdf.output()
 
     # --- LOGIKA FISIKA & PARAMETER AI ---
     warnings.filterwarnings('ignore')
