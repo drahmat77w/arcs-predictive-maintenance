@@ -474,8 +474,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             else: pdf.ln(2)
             pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "6. Notes", ln=True)
             pdf.set_font("Courier", '', 10)
-            pdf.multi_cell(0, 5, str(notes).strip(), align='L')
-            pdf.ln(5)
+            pdf.write(5, str(notes).strip())
+            pdf.ln(8)
 
         if pdf.get_y() > 245: pdf.add_page()
         else: pdf.ln(5)
@@ -483,8 +483,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.set_font("Courier", 'B', 10)
         pdf.cell(0, 5, "DISCLAIMER:", ln=True)
         pdf.set_font("Courier", 'I', 9)
-        pdf.multi_cell(0, 5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.", align='L')
-        pdf.ln(5)
+        pdf.write(5, "This document provides an estimated forecast and should not be used as the absolute baseline for maintenance execution. Please continue to periodically monitor the engine data through the Engine Health Portal.")
+        pdf.ln(8)
 
         if pdf.get_y() > 220: pdf.add_page()
         else: pdf.ln(5) 
@@ -508,11 +508,9 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.ln(5)
         pdf.set_text_color(150, 150, 150)
         pdf.set_font("Courier", 'I', 7)
-        disclaimer_text = "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and/or their affiliated companies."
-        pdf.multi_cell(0, 4, disclaimer_text, align='L')
+        pdf.write(4, "This message may contain confidential and/or proprietary information of Garuda Maintenance Facility Aero Asia, PT., and/or their affiliated companies.")
         pdf.set_text_color(0, 0, 0) 
 
-        # --- FIX: fpdf2 mengembalikan bytes secara langsung melalui pdf.output() ---
         return bytes(pdf.output())
 
     # --- LOGIKA FISIKA & PARAMETER AI ---
@@ -562,6 +560,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         if st.button("🚀 Run Analysis", key="btn_run"):
             if uploaded_file is not None:
                 reset_seeds(42)
+                
                 st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
                 st.session_state['analyzer_name'] = st.session_state['employee_name']
                 
