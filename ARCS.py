@@ -57,6 +57,65 @@ if 'thesis_metrics' not in st.session_state:
 if 'current_engine' not in st.session_state:
     st.session_state['current_engine'] = None
 
+# --- GLOBAL MEMORY STORAGE (TIDAK MENGUBAH PERHITUNGAN) ---
+# Memori ini hanya menyimpan dan memuat hasil akhir analisis.
+# Tidak ada parameter, preprocessing, training, forecasting, atau metric yang diubah.
+MEMORY_DB = "arcs_memory.sqlite3"
+
+def _init_memory_db():
+    try:
+        with sqlite3.connect(MEMORY_DB) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS analysis_memory (
+                    engine_model TEXT PRIMARY KEY,
+                    payload BLOB NOT NULL,
+                    saved_at TEXT NOT NULL
+                )
+            """)
+            conn.commit()
+    except Exception:
+        pass
+
+def save_analysis_memory(engine_model, session_payload):
+    try:
+        _init_memory_db()
+        payload_blob = pickle.dumps(session_payload, protocol=pickle.HIGHEST_PROTOCOL)
+        with sqlite3.connect(MEMORY_DB) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO analysis_memory (engine_model, payload, saved_at)
+                VALUES (?, ?, ?)
+                """,
+                (engine_model, sqlite3.Binary(payload_blob), datetime.utcnow().isoformat())
+            )
+            conn.commit()
+        return True, None
+    except Exception as e:
+        return False, e
+
+def load_analysis_memory(engine_model):
+    try:
+        _init_memory_db()
+        with sqlite3.connect(MEMORY_DB) as conn:
+            row = conn.execute(
+                "SELECT payload FROM analysis_memory WHERE engine_model = ?",
+                (engine_model,)
+            ).fetchone()
+        if row and row[0]:
+            return pickle.loads(row[0])
+    except Exception:
+        pass
+    return None
+
+def apply_saved_session(saved_session):
+    if not saved_session:
+        return
+    st.session_state['run_time']       = saved_session.get('run_time')
+    st.session_state['analyzer_name']  = saved_session.get('analyzer_name')
+    st.session_state['engines']        = saved_session.get('engines')
+    st.session_state['results']        = saved_session.get('results')
+    st.session_state['thesis_metrics'] = saved_session.get('thesis_metrics')
+
 # --- PERBAIKAN: BULLETPROOF SEED LOCKING ---
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -127,126 +186,30 @@ if not st.session_state['logged_in']:
 st.sidebar.markdown("### ✈️ Fleet Navigation")
 nav_engine = st.sidebar.selectbox("Engine Model", ["GE90-115B", "CFM56-5B"])
 
-# ==========================================
-# PERSISTENT APP MEMORY
-# ==========================================
-# SQLite dipakai agar hasil analisis dapat dibaca ulang saat browser di-refresh
-# atau saat aplikasi dibuka dari device lain selama Streamlit Cloud container masih aktif.
-# Perhitungan forecast tidak diubah; yang disimpan adalah hasil akhir setelah analisis selesai.
-SESSION_DB_FILE = os.environ.get("ARCS_SESSION_DB", "arcs_memory.sqlite3")
-LEGACY_SESSION_FILE = f"latest_session_{nav_engine}.pkl"
-
-def init_session_db():
-    with sqlite3.connect(SESSION_DB_FILE, timeout=30) as conn:
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS analysis_sessions (
-                engine_model TEXT PRIMARY KEY,
-                run_time TEXT,
-                analyzer_name TEXT,
-                engines_blob BLOB,
-                results_blob BLOB,
-                thesis_metrics_blob BLOB,
-                updated_at TEXT NOT NULL
-            )
-        """)
-        conn.commit()
-
-def save_analysis_session(engine_model, session_payload):
-    init_session_db()
-    with sqlite3.connect(SESSION_DB_FILE, timeout=30) as conn:
-        conn.execute(
-            """
-            INSERT INTO analysis_sessions (
-                engine_model, run_time, analyzer_name, engines_blob,
-                results_blob, thesis_metrics_blob, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(engine_model) DO UPDATE SET
-                run_time=excluded.run_time,
-                analyzer_name=excluded.analyzer_name,
-                engines_blob=excluded.engines_blob,
-                results_blob=excluded.results_blob,
-                thesis_metrics_blob=excluded.thesis_metrics_blob,
-                updated_at=excluded.updated_at
-            """,
-            (
-                engine_model,
-                session_payload.get("run_time"),
-                session_payload.get("analyzer_name"),
-                sqlite3.Binary(pickle.dumps(session_payload.get("engines"), protocol=pickle.HIGHEST_PROTOCOL)),
-                sqlite3.Binary(pickle.dumps(session_payload.get("results"), protocol=pickle.HIGHEST_PROTOCOL)),
-                sqlite3.Binary(pickle.dumps(session_payload.get("thesis_metrics"), protocol=pickle.HIGHEST_PROTOCOL)),
-                datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-            )
-        )
-        conn.commit()
-
-def load_analysis_session(engine_model):
-    init_session_db()
-    with sqlite3.connect(SESSION_DB_FILE, timeout=30) as conn:
-        row = conn.execute(
-            """
-            SELECT run_time, analyzer_name, engines_blob, results_blob, thesis_metrics_blob
-            FROM analysis_sessions
-            WHERE engine_model = ?
-            """,
-            (engine_model,)
-        ).fetchone()
-
-    if not row:
-        return None
-
-    run_time, analyzer_name, engines_blob, results_blob, thesis_metrics_blob = row
-    return {
-        "run_time": run_time,
-        "analyzer_name": analyzer_name,
-        "engines": pickle.loads(engines_blob) if engines_blob else [],
-        "results": pickle.loads(results_blob) if results_blob else None,
-        "thesis_metrics": pickle.loads(thesis_metrics_blob) if thesis_metrics_blob else None,
-    }
-
-def load_legacy_pickle_session():
-    if not os.path.exists(LEGACY_SESSION_FILE):
-        return None
-    try:
-        with open(LEGACY_SESSION_FILE, "rb") as f:
-            return pickle.load(f)
-    except Exception:
-        return None
-
-def hydrate_session_state_from_memory(engine_model):
-    if st.session_state.get('results') is not None:
-        return
-
-    saved_session = None
-    try:
-        saved_session = load_analysis_session(engine_model)
-    except Exception as e:
-        st.warning(f"Gagal membaca database memori ARCS: {e}")
-
-    # Backward compatibility: jika sebelumnya masih ada file .pkl lama, migrasikan ke SQLite.
-    if saved_session is None:
-        saved_session = load_legacy_pickle_session()
-        if saved_session is not None:
-            try:
-                save_analysis_session(engine_model, saved_session)
-            except Exception:
-                pass
-
-    if saved_session is not None:
-        st.session_state['run_time']       = saved_session.get('run_time')
-        st.session_state['analyzer_name']  = saved_session.get('analyzer_name')
-        st.session_state['engines']        = saved_session.get('engines')
-        st.session_state['results']        = saved_session.get('results')
-        st.session_state['thesis_metrics'] = saved_session.get('thesis_metrics')
+SESSION_FILE = f"latest_session_{nav_engine}.pkl"
 
 if st.session_state.get('current_engine') != nav_engine:
     st.session_state['current_engine'] = nav_engine
-    st.session_state['results'] = None
-    st.session_state['engines'] = []
-    st.session_state['thesis_metrics'] = None
+    st.session_state['results'] = None 
 
-hydrate_session_state_from_memory(nav_engine)
+# Load hasil terakhir dari memori global app.
+# Urutan:
+# 1) SQLite memory: dipakai untuk refresh dan device lain dalam deployment yang sama.
+# 2) File .pkl lama: fallback agar data lama tetap bisa terbaca.
+if st.session_state.get('results') is None:
+    saved_session = load_analysis_memory(nav_engine)
+
+    if saved_session is None and os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'rb') as f:
+                saved_session = pickle.load(f)
+
+            # Migrasikan file lama ke SQLite tanpa mengubah isi payload.
+            save_analysis_memory(nav_engine, saved_session)
+        except Exception:
+            saved_session = None
+
+    apply_saved_session(saved_session)
 
 if nav_engine == "GE90-115B":
     nav_module = st.sidebar.radio("Module", ["Home", "Fuel Filter Replacement Forecasting", "Engine Health Analytics"])
@@ -1231,7 +1194,19 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                         "results": forecast_report,
                         "thesis_metrics": st.session_state.get('thesis_metrics')
                     }
-                    save_analysis_session(nav_engine, session_to_save)
+
+                    saved_ok, save_error = save_analysis_memory(nav_engine, session_to_save)
+
+                    # Tetap tulis file .pkl sebagai cadangan legacy.
+                    # Ini tidak dipakai untuk perhitungan, hanya backup payload hasil akhir.
+                    try:
+                        with open(SESSION_FILE, 'wb') as f:
+                            pickle.dump(session_to_save, f, protocol=pickle.HIGHEST_PROTOCOL)
+                    except Exception:
+                        pass
+
+                    if not saved_ok:
+                        st.warning(f"Failed to auto-save session: {save_error}")
                 except Exception as e:
                     st.warning(f"Failed to auto-save session: {e}")
                 
