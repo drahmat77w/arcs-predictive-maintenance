@@ -4,7 +4,7 @@ numpy
 tensorflow-cpu
 scikit-learn
 plotly
-fpdf2
+fpdf==1.7.2
 Pillow
 scipy
 openpyxl
