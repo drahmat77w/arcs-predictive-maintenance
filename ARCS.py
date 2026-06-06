@@ -56,8 +56,7 @@ if 'thesis_metrics' not in st.session_state:
 if 'current_engine' not in st.session_state:
     st.session_state['current_engine'] = None
 
-# --- PERBAIKAN: DETERMINISME MUTLAK ---
-# Menjamin hasil AI 100% konsisten meskipun di "Force Retrain" berulang kali
+# --- PERBAIKAN: BULLETPROOF SEED LOCKING ---
 def reset_seeds(seed=42):
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -329,13 +328,11 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         view    = np.lib.stride_tricks.as_strided(arr2d, shape=shape, strides=strides)
         return view.copy()  
 
-    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int, seed: int = 42) -> np.ndarray:
-        # Menggunakan seeded generator agar "Force Retrain" tetap 100% konsisten
-        rng = np.random.default_rng(seed)
+    def vectorized_monte_carlo(curr_psi: float, base_curve: np.ndarray, n_iter: int, n_steps: int) -> np.ndarray:
         base_arr     = base_curve[:n_steps]
         base_delta   = base_arr - base_arr[0]                       
-        start_noises = rng.normal(0.0,  0.05, n_iter)         
-        drift_rfs    = rng.normal(1.0,  0.15, n_iter)         
+        start_noises = np.random.normal(0.0,  0.05, n_iter)         
+        drift_rfs    = np.random.normal(1.0,  0.15, n_iter)         
         return (curr_psi + start_noises[:, None]) + drift_rfs[:, None] * base_delta[None, :]
 
     class PDFReport(FPDF):
@@ -515,6 +512,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.multi_cell(0, 4, disclaimer_text, align='L')
         pdf.set_text_color(0, 0, 0) 
 
+        # --- FIX: fpdf2 mengembalikan bytes secara langsung melalui pdf.output() ---
         return bytes(pdf.output())
 
     # --- LOGIKA FISIKA & PARAMETER AI ---
@@ -563,9 +561,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
         if st.button("🚀 Run Analysis", key="btn_run"):
             if uploaded_file is not None:
-                # Memanggil reset_seeds() DENGAN TEGAS sebelum model Keras disentuh
                 reset_seeds(42)
-                
                 st.session_state['run_time'] = datetime.now().strftime("%d-%b-%Y %H:%M:%S")
                 st.session_state['analyzer_name'] = st.session_state['employee_name']
                 
@@ -779,8 +775,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                     importances   = {}
                     for i in range(2):
                         X_shuff              = X_val_seq.copy()
-                        shuffle_rng_e        = np.random.default_rng(42 + i)
-                        shuffle_idx          = shuffle_rng_e.permutation(len(X_shuff))
+                        shuffle_idx          = np.random.permutation(len(X_shuff))
                         X_shuff[:, :, i]     = X_val_seq[shuffle_idx, :, i]
                         pred_shuff           = model.predict(X_shuff, verbose=0)
                         pred_shuff_real      = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -954,8 +949,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                 e_importances = {}
                                 for i in range(2):
                                     X_shuff          = X_eval.copy()
-                                    shuffle_rng_e    = np.random.default_rng(42 + i)
-                                    shuffle_idx      = shuffle_rng_e.permutation(len(X_shuff))
+                                    shuffle_idx      = np.random.permutation(len(X_shuff))
                                     X_shuff[:, :, i] = X_eval[shuffle_idx, :, i]
                                     pred_shuff       = model.predict(X_shuff, verbose=0)
                                     pred_shuff_real  = scaler_p.inverse_transform(pred_shuff).flatten()
@@ -999,7 +993,6 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                             base_curve    = np.empty(PREDICT_STEPS, dtype=np.float64)
                             curr_psi_loop = curr_psi
 
-                            # --- MENGEMBALIKAN LOGIKA ASLI YANG ANDA SUKAI 100% ---
                             curr_epsilon = INITIAL_POROSITY
                             struct_term  = ((1 - curr_epsilon)**2) / (curr_epsilon**3)
                             k_system     = max(curr_psi_loop, 0.1) / struct_term
@@ -1049,7 +1042,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
                                     if rem > 0: base_curve[i + 1:] = curr_psi_loop + np.arange(1, rem + 1) * MIN_DRIFT_RATE
                                     break
                             
-                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS, seed=(42 + idx))
+                            mc_results  = vectorized_monte_carlo(curr_psi, base_curve, MC_ITERATIONS, PREDICT_STEPS)
                             upper       = np.percentile(mc_results, PARETO_CONFIDENCE,       axis=0)
                             lower       = np.percentile(mc_results, 100 - PARETO_CONFIDENCE, axis=0)
                             final_curve = np.mean(mc_results, axis=0)
