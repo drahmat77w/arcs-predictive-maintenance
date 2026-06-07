@@ -434,47 +434,54 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.cell(100, 10, f"ARCS Dashboard Generated on {self.utc_now}Z", align='L')
             self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
-        def add_pdf_letterhead(pdf):
+def add_pdf_letterhead(pdf):
+    """
+    Kop surat PDF ARCS.
+    Diletakkan di bagian paling atas halaman, sebelum judul Pre-Info Notification.
+    Menggunakan logo Engineering Services dari file TE.png.
+    """
 
-        top_y = 10
-        logo_x = 10
-        logo_y = 13
-        logo_w = 55
-        text_x = 70
-        text_y = 10
+    start_y = 10
 
-        pdf.set_text_color(0, 0, 0)
+    # Logo kiri
+    if os.path.exists("TE.png"):
+        try:
+            pdf.image("TE.png", x=10, y=start_y + 2, w=55)
+        except Exception:
+            # Jika logo gagal dibaca, jangan gagalkan PDF
+            pdf.set_xy(10, start_y + 8)
+            pdf.set_font("Courier", "B", 10)
+            pdf.cell(55, 6, "Engineering Services", ln=0)
 
-        if os.path.exists("TE.png"):
-            try:
-                pdf.image("TE.png", x=logo_x, y=logo_y, w=logo_w)
-            except Exception:
-                pdf.set_xy(logo_x, logo_y + 4)
-                pdf.set_font("Arial", 'B', 12)
-                pdf.cell(55, 8, "Engineering Services", ln=0)
-        else:
-            pdf.set_xy(logo_x, logo_y + 4)
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(55, 8, "Engineering Services", ln=0)
-
-        pdf.set_xy(text_x, text_y)
-        pdf.set_font("Arial", '', 12)
+        # Teks kanan
+        pdf.set_xy(75, start_y)
+        pdf.set_font("Arial", "", 14)
         pdf.cell(0, 6, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
-        pdf.set_x(text_x)
+
+        pdf.set_x(75)
+        pdf.set_font("Arial", "", 12)
         pdf.cell(0, 6, "Engineering Services Unit", ln=True)
-        pdf.set_x(text_x)
+    
+        pdf.set_x(75)
         pdf.cell(0, 6, "Aircraft Powerplant Engineering (TEA-2)", ln=True)
-        pdf.set_x(text_x)
+
+        pdf.set_x(75)
         pdf.cell(0, 6, "Hangar III, 2nd Floor", ln=True)
 
-        pdf.set_line_width(0.4)
-        pdf.line(10, 38, 200, 38)
-        pdf.set_y(44)
+        # Garis pemisah bawah kop surat
+        pdf.set_draw_color(0, 0, 0)
+        pdf.set_line_width(0.3)
+        pdf.line(10, 42, 200, 42)
+
+        # Posisi kursor setelah kop
+        pdf.set_y(48)
         
     def generate_cnr_pdf(res, user_name="[Nama]", user_phone="[Nomor Telepon]", user_email="[Email]", images_bytes_list=None, notes=None):
         pdf = PDFReport()
         pdf.alias_nb_pages()
         pdf.add_page()
+
+        add_pdf_letterhead(pdf)
         
         pdf.set_font("Courier", 'B', 16)
         pdf.cell(0, 10, "Pre-Info Notification", ln=True, align='C')
