@@ -444,18 +444,19 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         # ==============================================================
         if os.path.exists("TE.png"):
             # Logo TE di kiri
-            pdf.image("TE.png", x=20, y=20, w=32)
-            
-            # Garis vertikal pembatas
-            pdf.set_draw_color(0, 0, 0)
-            pdf.set_line_width(0.4)
-            pdf.line(36, 11, 36, 26)
+            pdf.image("TE.png", x=15, y=15, w=27)
             
             # Teks "Engineering Services" (Besar, Tebal, Warna Biru Garuda)
             pdf.set_xy(40, 12)
             pdf.set_font("Courier", 'B', 18)
             pdf.set_text_color(0, 37, 97)
             pdf.cell(0, 6, "Engineering Services", ln=True)
+
+            # Teks Aircraft Powerplant Engineering
+            pdf.set_xy(40, 20)
+            pdf.set_font("Courier", 'B', 10)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 5, "Aircraft Powerplant Engineering (TEA-2)", ln=True)
             
             # Teks PT GMF (Kecil, Hitam)
             pdf.set_xy(40, 20)
