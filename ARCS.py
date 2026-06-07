@@ -531,7 +531,12 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.ln(4)
         
         pdf.cell(0, 5, "Dear TLP,", ln=True)
-        pdf.write(5, f"With this document, it is possible that a CNR will appear on the {res['Date']}. Please to prepare ground time so that the CNR troubleshooting process can be carried out.")
+        pdf.set_font("Courier", "", 10)
+        pdf.write(5, "With this document, it is possible that a CNR will appear on the ")
+        pdf.set_font("Courier", "B", 11)
+        pdf.write(5, str(res["Date"]))
+        pdf.set_font("Courier", "", 11)
+        pdf.write(5, ". Please to prepare ground time so that the CNR troubleshooting process can be carried out.")
         pdf.ln(8)
 
         pdf.set_font("Courier", 'B', 11); pdf.cell(0, 6, "4. Supporting Information", ln=True)
