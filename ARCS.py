@@ -439,6 +439,41 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         pdf.alias_nb_pages()
         pdf.add_page()
         
+        # ==============================================================
+        # --- PERBAIKAN: FORMAT KOP SURAT SESUAI GAMBAR YANG DIUPLOAD ---
+        # ==============================================================
+        if os.path.exists("TE.png"):
+            # Logo TE di kiri
+            pdf.image("TE.png", x=10, y=10, w=22)
+            
+            # Garis vertikal pembatas
+            pdf.set_draw_color(0, 0, 0)
+            pdf.set_line_width(0.4)
+            pdf.line(36, 11, 36, 26)
+            
+            # Teks "Engineering Services" (Besar, Tebal, Warna Biru Garuda)
+            pdf.set_xy(40, 12)
+            pdf.set_font("Helvetica", 'B', 18)
+            pdf.set_text_color(0, 37, 97)
+            pdf.cell(0, 6, "Engineering Services", ln=True)
+            
+            # Teks PT GMF (Kecil, Hitam)
+            pdf.set_xy(40, 20)
+            pdf.set_font("Helvetica", 'B', 10)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
+            
+            pdf.set_y(32)
+        else:
+            # Fallback jika gambar TE.png terhapus/hilang dari server
+            pdf.set_font("Helvetica", 'B', 18)
+            pdf.set_text_color(0, 37, 97)
+            pdf.cell(0, 8, "Engineering Services", ln=True)
+            pdf.set_font("Helvetica", 'B', 10)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(0, 6, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
+            pdf.set_y(28)
+            
         pdf.set_font("Courier", 'B', 16)
         pdf.cell(0, 10, "Pre-Info Notification", ln=True, align='C')
         pdf.ln(5)
