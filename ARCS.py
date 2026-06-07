@@ -449,7 +449,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             # Teks "Engineering Services" (Besar, Tebal, Warna Biru Garuda)
             pdf.set_xy(43, 12)
             pdf.set_font("Courier", 'B', 16)
-            pdf.set_text_color(0, 37, 97)
+            pdf.set_text_color(0, 0, 0)
             pdf.cell(0, 6, "Engineering Services", ln=True)
 
             # Teks Aircraft Powerplant Engineering
