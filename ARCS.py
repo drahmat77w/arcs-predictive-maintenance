@@ -435,11 +435,7 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
             self.cell(0, 10, f'Page {self.page_no()}/{{nb}}', align='R')
 
         def add_pdf_letterhead(pdf):
-        """
-        Kop surat PDF sesuai format Engineering Services.
-        Fungsi ini hanya mengatur tampilan header dokumen dan tidak menyentuh
-        perhitungan forecasting/analytics.
-        """
+
         top_y = 10
         logo_x = 10
         logo_y = 13
