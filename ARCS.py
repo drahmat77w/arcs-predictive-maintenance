@@ -454,13 +454,13 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
 
             # Teks Aircraft Powerplant Engineering
             pdf.set_xy(43, 18)
-            pdf.set_font("Courier", '', 8)
+            pdf.set_font("Courier", '', 9)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(0, 5, "Aircraft Powerplant Engineering (TEA-2)", ln=True)
             
             # Teks PT GMF (Kecil, Hitam)
             pdf.set_xy(43, 22)
-            pdf.set_font("Courier", '', 8)
+            pdf.set_font("Courier", '', 9)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(0, 5, "PT Garuda Maintenance Facility Aero Asia Tbk", ln=True)
             
