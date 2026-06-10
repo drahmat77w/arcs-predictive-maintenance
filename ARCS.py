@@ -157,14 +157,14 @@ if not st.session_state['logged_in']:
     with col2:
         st.markdown("""
             <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #000; letter-spacing: 1px; line-height: 1;">ARCS</h1>
-                <div style="width: 2px; height: 35px; background-color: #000; margin: 0 15px;"></div>
+                <h1 style="margin: 0; font-size: 40px; font-weight: 900; color: #FFF; letter-spacing: 1px; line-height: 1;">ARCS</h1>
+                <div style="width: 2px; height: 35px; background-color: #FFF; margin: 0 15px;"></div>
                 <div style="text-align: left; line-height: 1.1;">
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Aircraft Reliability</span>
-                    <span style="display: block; font-weight: 800; font-size: 15px; color: #000;">Control Systems</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Aircraft Reliability</span>
+                    <span style="display: block; font-weight: 800; font-size: 15px; color: #FFF;">Control Systems</span>
                 </div>
             </div>
-            <h3 style="font-size: 16px; margin-bottom: 5px; color: #000;">Login</h3>
+            <h3 style="font-size: 16px; margin-bottom: 5px; color: #FFF;">Login</h3>
         """, unsafe_allow_html=True)
         username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
         password = st.text_input("Password", placeholder="Password", type="password", label_visibility="collapsed")
@@ -1385,8 +1385,8 @@ elif nav_module == "Fuel Filter Replacement Forecasting":
         with st.form(key="signature_form"):
             col_s1, col_s2, col_s3 = st.columns(3)
             with col_s1: input_name = st.text_input("Name", value=user_display_name)
-            with col_s2: input_phone = st.text_input("Phone Number", value="+6281904706205")
-            with col_s3: input_email = st.text_input("Email", value="maziz@gmf-aeroasia.co.id")
+            with col_s2: input_phone = st.text_input("Phone Number", value="+62")
+            with col_s3: input_email = st.text_input("Email", value="@gmf-aeroasia.co.id")
             
             st.markdown("---")
             uploaded_imgs = st.file_uploader("📎 Upload Supporting Images", type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff'], accept_multiple_files=True, help="Upload grafik atau data tambahan sebanyak-banyaknya. Gambar akan dikonversi otomatis agar kompatibel dengan PDF. Format SVG tidak didukung oleh Pillow/FPDF pada deployment ini.")
